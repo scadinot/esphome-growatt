@@ -1,0 +1,82 @@
+# =============================================================================
+# MISE A L'HEURE DES ONDULEURS depuis l'ESP
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+# Lecture des horloges et ecart : packages/gw-horloges.yaml.
+#
+# Ecrit les holding registers 45 a 50 en une seule trame FC16, a partir de
+# l'heure locale SNTP (Europe/Paris, id heure_locale dans growatt.yaml).
+#
+# VALIDE LE 23/08/2026 sur les deux onduleurs : ecriture acceptee, date et
+#   heure correctes. L'ecart est passe de 3600 s a la ligne de base.
+#
+# FORMAT DE L'ANNEE - la precaution qui a paye :
+#   La lambda de lecture accepte 26 comme 2026, on ne savait donc pas lequel
+#   des deux l'onduleur stocke. Ecrire le mauvais format aurait pose une date
+#   absurde. Chaque bouton RELIT la valeur brute courante et reecrit DANS LE
+#   MEME FORMAT : registre a 26 -> on ecrit 26.
+#
+# UN BOUTON PAR ONDULEUR, et non un seul pour les deux : en cas de mappage
+#   inattendu on n'abime qu'une horloge a la fois. Tester d'abord sur celle
+#   qui est deja fausse.
+#
+# Le resultat n'est pas immediat : les entites RTC se rafraichissent au cycle
+#   Modbus suivant, donc sous 30 secondes.
+#
+# USAGE COURANT : deux fois par an, aux changements d'heure. Ces SPF n'ont
+#   aucune gestion automatique de l'heure d'ete.
+# =============================================================================
+
+button:
+
+  - platform: template
+    name: "${upper_devicename} Mettre a l'heure Ond1"
+    icon: mdi:clock-edit-outline
+    entity_category: config
+    on_press:
+      - lambda: |-
+          auto t = id(heure_locale).now();
+          if (!t.is_valid()) {
+            ESP_LOGW("rtc", "Heure SNTP pas encore valide, ecriture annulee");
+            return;
+          }
+          int brut = (int) id(rtc_year).state;
+          uint16_t an = (brut > 0 && brut < 100) ? (uint16_t)(t.year % 100)
+                                                 : (uint16_t) t.year;
+          std::vector<uint16_t> v = { an,
+                                      (uint16_t) t.month,
+                                      (uint16_t) t.day_of_month,
+                                      (uint16_t) t.hour,
+                                      (uint16_t) t.minute,
+                                      (uint16_t) t.second };
+          auto *c = id(growatt);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_write_multiple_command(c, 45, 6, v));
+          ESP_LOGI("rtc", "Ond1 : ecriture %04d-%02d-%02d %02d:%02d:%02d (registre annee = %u)",
+                   t.year, t.month, t.day_of_month, t.hour, t.minute, t.second, an);
+
+  - platform: template
+    name: "${upper_devicename} Mettre a l'heure Ond2"
+    icon: mdi:clock-edit-outline
+    entity_category: config
+    on_press:
+      - lambda: |-
+          auto t = id(heure_locale).now();
+          if (!t.is_valid()) {
+            ESP_LOGW("rtc", "Heure SNTP pas encore valide, ecriture annulee");
+            return;
+          }
+          int brut = (int) id(rtc_year_2).state;
+          uint16_t an = (brut > 0 && brut < 100) ? (uint16_t)(t.year % 100)
+                                                 : (uint16_t) t.year;
+          std::vector<uint16_t> v = { an,
+                                      (uint16_t) t.month,
+                                      (uint16_t) t.day_of_month,
+                                      (uint16_t) t.hour,
+                                      (uint16_t) t.minute,
+                                      (uint16_t) t.second };
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_write_multiple_command(c, 45, 6, v));
+          ESP_LOGI("rtc", "Ond2 : ecriture %04d-%02d-%02d %02d:%02d:%02d (registre annee = %u)",
+                   t.year, t.month, t.day_of_month, t.hour, t.minute, t.second, an);

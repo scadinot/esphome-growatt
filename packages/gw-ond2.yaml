@@ -1,0 +1,502 @@
+# =============================================================================
+# Onduleur 2 - serie UYN8G3V04A, adresse Modbus 0x02
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# LE n2 N'EXPOSE QUE DES MESURES. Aucune entite pilotable ici : tous les
+#   reglages passent par l'onduleur 1, qui les propage - voir
+#   packages/gw-ond1-reglages.yaml et packages/gw-seuils-soc.yaml.
+#   Seul AC1 ne se propage pas ; il est recopie par automatisation, et sa
+#   valeur cote n2 est affichee plus bas EN LECTURE SEULE.
+#
+# OMIS car identiques au n1 : tension et SOC batterie (memes BMS), tension et
+#   frequence reseau (meme reseau).
+#
+# Son horloge est dans gw-horloges.yaml, ses entites PV dans gw-pv-off.yaml.
+# =============================================================================
+
+sensor:
+
+  # Restitue par "System Status Text Ond2"
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} System Status Ond2"
+    id: system_status_2
+    internal: true
+    register_type: read
+    address: 0
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Output Power Ond2"
+    register_type: read
+    address: 9
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Charge Power Ond2"
+    register_type: read
+    address: 13
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Output Voltage Ond2"
+    register_type: read
+    address: 22
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Output Frequency Ond2"
+    register_type: read
+    address: 23
+    value_type: U_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Inverter Temperature Ond2"
+    register_type: read
+    address: 25
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} DC-DC Temperature Ond2"
+    register_type: read
+    address: 26
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Load Percent Ond2"
+    register_type: read
+    address: 27
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Work Time Total Ond2"
+    register_type: read
+    address: 30
+    value_type: U_DWORD
+    unit_of_measurement: "h"
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.0001388889
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Output Current Ond2"
+    register_type: read
+    address: 34
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Inverter Current Ond2"
+    register_type: read
+    address: 35
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Input Power Ond2"
+    register_type: read
+    address: 36
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Fault Code Ond2"
+    id: fault_code_2
+    internal: true
+    register_type: read
+    address: 40
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Warning Code Ond2"
+    id: warning_code_2
+    internal: true
+    register_type: read
+    address: 41
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Charge Energy Today Ond2"
+    register_type: read
+    address: 56
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Charge Energy Total Ond2"
+    register_type: read
+    address: 58
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} [BMS] Battery Discharge Today Ond2"
+    register_type: read
+    address: 60
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} [BMS] Battery Discharge Total Ond2"
+    register_type: read
+    address: 62
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Output Energy Today Ond2"
+    register_type: read
+    address: 64
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Output Energy Total Ond2"
+    register_type: read
+    address: 66
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Charge Current Ond2"
+    register_type: read
+    address: 68
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # S_DWORD : ce registre passe en negatif, cf. l'onduleur 1.
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Discharge Power Ond2"
+    register_type: read
+    address: 69
+    value_type: S_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} [BMS] Battery Discharge Power Ond2"
+    register_type: read
+    address: 73
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} [BMS] Battery Power Ond2"
+    register_type: read
+    address: 77
+    value_type: S_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Inverter Fan Speed Ond2"
+    register_type: read
+    address: 82
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # ---------------------------------------------------------------------------
+  # AC1 cote onduleur 2 - HOLDING 38, EN LECTURE SEULE (24/08/2026)
+  #
+  # C'etait un number, donc un curseur. Mauvaise idee : la valeur y est
+  #   imposee par l'onduleur 1 et toute saisie manuelle etait ecrasee au cycle
+  #   suivant. Un curseur qui n'obeit pas est une invitation a l'erreur.
+  #
+  # Ce capteur reste expose parce qu'il affiche ce que l'onduleur 2 renvoie
+  #   REELLEMENT : c'est la preuve que la recopie a abouti, et pas seulement
+  #   qu'elle est partie. Pour REGLER le courant, utiliser l'entite Ond1.
+  #
+  # IL APPARAIT DANS LA CARTE DIAGNOSTIC, pas Configuration, donc pas a cote
+  #   de son jumeau Ond1. C'est une contrainte d'ESPHome, essayee et refusee
+  #   le 24/08/2026 : "entity_category: config" n'est autorise que sur les
+  #   entites pilotables, un sensor ne peut prendre que diagnostic ou rien.
+  #   Le seul moyen de le placer dans Configuration serait d'en refaire un
+  #   number - donc de le rendre modifiable, ce qu'on ne veut pas.
+  #   Pour les voir cote a cote : les poser explicitement sur une carte du
+  #   tableau de bord.
+  #
+  # ATTENTION : c'est un HOLDING register, a ne pas confondre avec
+  #   "AC Charge Current Ond2" plus haut, qui est l'INPUT 68 - le courant
+  #   reellement mesure, pas la consigne.
+  # ---------------------------------------------------------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} AC Charge Current Setting (AC1) Ond2"
+    id: ac1_reglage_ond2
+    register_type: holding
+    address: 38
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    accuracy_decimals: 0
+    icon: mdi:transmission-tower-export
+    entity_category: diagnostic
+
+text_sensor:
+
+  # force_new_range OBLIGATOIRE avec skip_updates - voir growatt.yaml.
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Serial Number Ond2"
+    register_type: holding
+    address: 23
+    register_count: 5
+    response_size: 10
+    raw_encode: ANSI
+    skip_updates: 60
+    force_new_range: true
+    icon: mdi:identifier
+    entity_category: diagnostic
+
+  - platform: template
+    name: "${upper_devicename} System Status Text Ond2"
+    lambda: |-
+      int status = (int) id(system_status_2).state;
+      switch (status) {
+        case 0: return {"Standby"};
+        case 1: return {"No Use"};
+        case 2: return {"Discharge"};
+        case 3: return {"Fault"};
+        case 4: return {"Flash"};
+        case 5: return {"PV Charge"};
+        case 6: return {"AC Charge"};
+        case 7: return {"Combine Charge"};
+        case 8: return {"Combine Charge & Bypass"};
+        case 9: return {"PV Charge & Bypass"};
+        case 10: return {"AC Charge & Bypass"};
+        case 11: return {"Bypass"};
+        case 12: return {"PV Charge & Discharge"};
+        default: return {"Unknown"};
+      }
+    update_interval: 30s
+
+  - platform: template
+    name: "${upper_devicename} Fault Text Ond2"
+    lambda: |-
+      int code = (int) id(fault_code_2).state;
+      switch (code) {
+        case 0:  return {"OK"};
+        case 1:  return {"Fan fault"};
+        case 2:  return {"Over temperature"};
+        case 3:  return {"Battery over-charged"};
+        case 5:  return {"Output short circuit"};
+        case 6:  return {"Output voltage too high"};
+        case 7:  return {"Overload timeout"};
+        case 8:  return {"Bus voltage too high"};
+        case 9:  return {"Bus soft start failed"};
+        case 51: return {"Over current / surge"};
+        case 52: return {"Bus voltage too low"};
+        case 53: return {"Inverter soft start failed"};
+        case 55: return {"Over DC in AC output"};
+        case 56: return {"Battery connection open"};
+        case 57: return {"Current sensor failed"};
+        case 58: return {"Output voltage too low"};
+        case 60: return {"Negative power fault"};
+        case 61: return {"PV voltage too high"};
+        case 62: return {"Internal comm error"};
+        case 80: return {"CAN fault"};
+        case 81: return {"Host loss"};
+        default: return {"Unknown fault " + to_string(code)};
+      }
+    update_interval: 30s
+
+  - platform: template
+    name: "${upper_devicename} Warning Text Ond2"
+    lambda: |-
+      int code = (int) id(warning_code_2).state;
+      switch (code) {
+        case 0:  return {"OK"};
+        case 1:  return {"Fan locked"};
+        case 2:  return {"Over temperature"};
+        case 3:  return {"Battery over-charged"};
+        case 4:  return {"Low battery"};
+        case 7:  return {"Overload"};
+        case 10: return {"Output power derating"};
+        case 12: return {"Solar stop - low battery"};
+        case 13: return {"Solar stop - high PV voltage"};
+        case 14: return {"Solar stop - overload"};
+        case 15: return {"Parallel input grid different"};
+        case 16: return {"Parallel input phase error"};
+        case 17: return {"Parallel output phase loss"};
+        case 18: return {"Buck over current"};
+        case 19: return {"Battery disconnect"};
+        case 20: return {"BMS communication error"};
+        case 21: return {"PV power insufficient"};
+        case 22: return {"Parallel forbidden no battery"};
+        case 25: return {"Parallel capacity mismatch"};
+        case 33: return {"BMS communication loss"};
+        case 34: return {"Cell over voltage"};
+        case 35: return {"Cell under voltage"};
+        case 36: return {"Total over voltage"};
+        case 37: return {"Total under voltage"};
+        case 38: return {"Discharge over current"};
+        case 39: return {"Charge over current"};
+        case 40: return {"Discharge over temperature"};
+        case 41: return {"Charge over temperature"};
+        case 42: return {"Mosfet over temperature"};
+        case 43: return {"Battery over temperature"};
+        case 44: return {"Battery under temperature"};
+        case 45: return {"System shutdown"};
+        default: return {"Unknown warning " + to_string(code)};
+      }
+    update_interval: 30s
+
+binary_sensor:
+
+  - platform: template
+    name: "${upper_devicename} Fault Active Ond2"
+    lambda: return id(fault_code_2).state > 0;
+    device_class: problem
+
+  - platform: template
+    name: "${upper_devicename} Warning Active Ond2"
+    lambda: return id(warning_code_2).state > 0;
+    device_class: problem
+
+  - platform: template
+    name: "${upper_devicename} Charging Ond2"
+    lambda: |-
+      int status = (int) id(system_status_2).state;
+      return (status == 5 || status == 6 || status == 7 || status == 8 || status == 9 || status == 10);
+    device_class: battery_charging
+
+  - platform: template
+    name: "${upper_devicename} Discharging Ond2"
+    lambda: |-
+      int status = (int) id(system_status_2).state;
+      return (status == 2 || status == 12);

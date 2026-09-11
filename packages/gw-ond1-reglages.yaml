@@ -1,0 +1,270 @@
+# =============================================================================
+# PILOTAGE - switch, select, number
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# Ces reglages SE PROPAGENT aux deux onduleurs : ils ne portent donc que le
+# suffixe Ond1, la ou l'ecriture est envoyee. L'absence de jumeau Ond2 est
+# voulue, ce n'est pas un oubli.
+#
+# RAPPEL DE DIAGNOSTIC : une valeur ecrite qui "revient" apres un cycle a ete
+#   REFUSEE par l'onduleur... sauf si la plage est affamee par un skip_updates
+#   voisin, auquel cas elle revient alors qu'elle a bien ete acceptee - voir
+#   le piege decrit dans growatt.yaml. En cas de doute, comparer avec le LCD.
+#
+# AC1 (holding 38) est le SEUL reglage dont on a VERIFIE qu'il ne se propage
+#   pas. Il est synchronise ici meme, onduleur 1 maitre.
+#   GEN1 est dans gw-pv-off.yaml.
+#   Les trois seuils de SOC (Prog 12, 13, 21) sont dans gw-seuils-soc.yaml -
+#   eux se propagent, verifie le 24/08/2026.
+# =============================================================================
+
+switch:
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Buzzer Ond1"
+    register_type: holding
+    address: 22
+    bitmask: 1
+    entity_category: config
+
+select:
+
+  # Prog 01 - Output Priority. Correspondance ETABLIE par aller-retour HA/LCD,
+  # reconfirmee le 22/08/2026 reseau present.
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Output Priority Ond1"
+    address: 1
+    value_type: U_WORD
+    entity_category: config
+    optionsmap:
+      "SBU (Solar-Battery-Utility)": 0  # solaire, puis batterie, reseau en dernier
+      "SOL (Solar First)": 1            # solaire d'abord, reseau en complement
+      "UTI (Utility First)": 2          # reseau prioritaire
+      "SUB (Solar-Utility-Battery)": 3  # solaire, puis reseau, batterie en dernier
+
+  # Prog 14 - Charge Priority : ETABLIE le 22/08/2026, reseau present.
+  # CONSERVE MALGRE L'ABSENCE DE PV : ce reglage gouverne la charge des
+  #   maintenant. En OSO, l'onduleur refuserait le reseau.
+  # ATTENTION - les releves faits SANS reseau (13/08) etaient FAUX : prive de
+  #   reseau, SNU se comporte comme CSO et le LCD montre le mode EFFECTIF, pas
+  #   le reglage memorise. Toute correlation LCD reseau absent est suspecte.
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Charge Priority Ond1"
+    address: 2
+    value_type: U_WORD
+    entity_category: config
+    optionsmap:
+      "CSO (Solar First)": 0        # solaire prioritaire, reseau en secours
+      "SNU (Solar and Utility)": 1  # solaire et reseau chargent ensemble
+      "OSO (Only Solar)": 2         # solaire uniquement, reseau ignore
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Input Mode Setting Ond1"
+    address: 8
+    value_type: U_WORD
+    entity_category: config
+    disabled_by_default: true
+    optionsmap:
+      "APL (90-280VAC)": 0
+      "UPS (170-280VAC)": 1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Output Voltage Setting Ond1"
+    address: 18
+    value_type: U_WORD
+    entity_category: config
+    disabled_by_default: true
+    optionsmap:
+      "208VAC": 0
+      "230VAC": 1
+      "240VAC": 2
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Output Frequency Setting Ond1"
+    address: 19
+    value_type: U_WORD
+    entity_category: config
+    disabled_by_default: true
+    optionsmap:
+      "50Hz": 0
+      "60Hz": 1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Overload Restart Mode Ond1"
+    address: 20
+    value_type: U_WORD
+    entity_category: config
+    disabled_by_default: true
+    optionsmap:
+      "Yes (Auto restart)": 0
+      "No (Stop)": 1
+      "Switch to Utility": 2
+
+  # Doit rester sur "Lithium (avec BMS)" : Prog 05 = LI. En changer romprait
+  # le dialogue CAN avec le BMS - et ferait basculer les Prog 12, 13 et 21 de
+  # pourcentages en volts, cf. gw-seuils-soc.yaml.
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Battery Type Setting Ond1"
+    address: 39
+    value_type: U_WORD
+    entity_category: config
+    disabled_by_default: true
+    optionsmap:
+      "AGM": 0
+      "Flooded": 1
+      "User-Defined": 2
+      "Lithium (avec BMS)": 3
+      "User-Defined 2 (Li sans BMS)": 4
+
+# =============================================================================
+# NUMBER
+# -----------------------------------------------------------------------------
+# Les registres 3 a 6 sont des FENETRES HORAIRES. Une fenetre de charge fermee
+# arrete l'apport reseau sans aucune alarme - le statut affiche simplement
+# "Bypass". Verifie le 22/08/2026 : la charge s'etait arretee a 83 % parce que
+# la fenetre se terminait a 10 h.
+#
+# Chaque onduleur evalue ces fenetres contre SA PROPRE horloge : surveiller
+# "RTC Ecart Ond1-Ond2" dans packages/gw-horloges.yaml.
+# =============================================================================
+number:
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Utility Out Start Hour Setting Ond1"
+    address: 3
+    value_type: U_WORD
+    min_value: 0
+    max_value: 23
+    step: 1
+    unit_of_measurement: "h"
+    entity_category: config
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Utility Out End Hour Setting Ond1"
+    address: 4
+    value_type: U_WORD
+    min_value: 0
+    max_value: 23
+    step: 1
+    unit_of_measurement: "h"
+    entity_category: config
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Utility Charge Start Hour Setting Ond1"
+    address: 5
+    value_type: U_WORD
+    min_value: 0
+    max_value: 23
+    step: 1
+    unit_of_measurement: "h"
+    entity_category: config
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Utility Charge End Hour Setting Ond1"
+    address: 6
+    value_type: U_WORD
+    min_value: 0
+    max_value: 23
+    step: 1
+    unit_of_measurement: "h"
+    entity_category: config
+
+  # ---------------------------------------------------------------------------
+  # Prog 11, sous-reglage AC1 = registre 38 : courant de charge depuis le
+  # RESEAU. Echelle 1 A, CONFIRMEE par aller-retour. Plage manuel : 0-80 A.
+  #
+  # SEUL REGLAGE DONT ON A VERIFIE QU'IL NE SE PROPAGE PAS - chaque unite a
+  # son propre chargeur. L'onduleur 1 est MAITRE et recopie sa valeur sur le
+  # n2. Validee le 23/08/2026.
+  #
+  # ATTENTION AU CUMUL : le courant recu par la batterie est la SOMME des deux
+  #   chargeurs. Regler 40 A donne 80 A dans le pack. Choisir la MOITIE du
+  #   courant total vise, et rester sous la limite annoncee par le BMS.
+  #
+  # L'ECRITURE SE FAIT PAR COMMANDE MODBUS DIRECTE (24/08/2026) et non plus
+  #   par number.set : cote n2 la valeur est desormais un simple capteur en
+  #   lecture seule, pas un curseur. Meme mecanisme que les boutons de mise a
+  #   l'heure. Effet de bord bienvenu : plus de relecture de controle apres
+  #   ecriture, donc disparition du message
+  #     "Duplicate modbus command found: type=0x3 address=38 count=1"
+  #   qu'on voyait a chaque changement.
+  #
+  # CONTREPARTIE : le capteur cote n2 ne se rafraichit qu'au cycle suivant,
+  #   donc jusqu'a 30 secondes apres le changement. C'est normal, ce n'est pas
+  #   un echec de la recopie.
+  # ---------------------------------------------------------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Charge Current Setting (AC1) Ond1"
+    id: ac_charge_current_number
+    address: 38
+    value_type: U_WORD
+    min_value: 0
+    max_value: 80
+    step: 1
+    unit_of_measurement: "A"
+    entity_category: config
+    on_value:
+      # La garde est INDISPENSABLE : on_value se declenche a chaque relecture
+      # Modbus, pas seulement quand la valeur change. Sans elle, on ecrirait
+      # sur le bus toutes les 30 secondes pour rien. Au demarrage l'etat du n2
+      # est NaN : la condition renvoie false et la synchro attend un cycle.
+      - if:
+          condition:
+            lambda: |-
+              if (isnan(id(ac1_reglage_ond2).state)) return false;
+              return fabs(id(ac1_reglage_ond2).state - x) > 0.5f;
+          then:
+            # En INFO : invisible tant que le logger est en WARN. Remonter le
+            # niveau pour reverifier la synchro un jour.
+            - logger.log:
+                format: "AC1 : recopie Ond1 -> Ond2, %.0f A (Ond2 etait a %.0f A)"
+                args: ['x', 'id(ac1_reglage_ond2).state']
+                level: INFO
+            - lambda: |-
+                auto *c = id(growatt2);
+                c->queue_command(
+                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
+                    c, 38, (uint16_t) roundf(x)));
+
+  # Tensions de charge. En mode LI le BMS impose vraisemblablement ces valeurs
+  # par le CAN et ces reglages n'ont plus d'effet - non verifie. Les modifier
+  # sur un pack lithium sans savoir abime des cellules, d'ou le masquage.
+  # Relevees a 570 chacune, soit 57,0 V.
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Bulk Charge Voltage Setting Ond1"
+    address: 35
+    value_type: U_WORD
+    min_value: 48.0
+    max_value: 58.4
+    step: 0.1
+    multiply: 10
+    unit_of_measurement: "V"
+    entity_category: config
+    disabled_by_default: true
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Float Charge Voltage Setting Ond1"
+    address: 36
+    value_type: U_WORD
+    min_value: 48.0
+    max_value: 58.4
+    step: 0.1
+    multiply: 10
+    unit_of_measurement: "V"
+    entity_category: config
+    disabled_by_default: true

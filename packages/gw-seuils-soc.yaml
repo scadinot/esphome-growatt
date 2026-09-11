@@ -1,0 +1,103 @@
+# =============================================================================
+# LES TROIS SEUILS DE SOC - Prog 12, 13 et 21
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# Ces trois reglages ne se comprennent qu'ENSEMBLE : ils decrivent le cycle
+# complet de la batterie. Les regler separement n'a pas de sens, d'ou leur
+# regroupement dans ce fichier.
+#
+#   Prog 12 "b2AC" holding 37 ... on QUITTE la batterie pour le reseau
+#   Prog 13 "AC2b" holding 95 ... on REVIENT sur la batterie, une fois
+#                                 rechargee
+#   Prog 21 "CutU" holding 82 ... COUPURE BASSE, l'onduleur s'arrete
+#
+# 12 et 13 forment une BANDE D'HYSTERESIS. C'est leur ECART qui compte :
+#   trop serre, l'onduleur fait des allers-retours incessants entre reseau et
+#   batterie a chaque nuage ou chaque appel de charge. Regler le 12 sans
+#   regarder le 13 ne regle que la moitie du comportement.
+#
+# 21 est un plancher de securite qui doit rester SOUS le 12 - sinon la coupure
+#   surviendrait avant la bascule sur reseau, ce qui n'a aucun sens.
+#   Ordre a respecter :  21  <  12  <  13
+#
+# CES SEUILS NE SONT EN POURCENTAGE QUE SI Prog 05 = LI. Le manuel le dit
+#   explicitement : "When the battery type set to Li, the setting option 12,
+#   13, 21 will change to display percent". En AGM ou Flooded ce sont des
+#   VOLTS, et les bornes ci-dessous n'auraient plus de sens.
+#
+# ECHELLE x10, comme le Prog 12 : 51 % est stocke 510.
+#
+# PLAGES : reprises du manuel Growatt, pas inventees.
+#   12 : 6 a 95 %    13 : 10 a 100 %    21 : 5 a 50 %
+#
+# ILS SE PROPAGENT AU SECOND ONDULEUR - VERIFIE le 24/08/2026 en comparant
+#   avec l'ecran du n2 apres modification depuis Home Assistant. D'ou le
+#   suffixe Ond1 seul, comme les priorites et les fenetres horaires. Le
+#   contre-exemple reste AC1, qui lui ne se propage pas et doit etre
+#   synchronise par automatisation.
+#
+# =============================================================================
+# COMMENT CES REGISTRES ONT ETE TROUVES (24/08/2026)
+# -----------------------------------------------------------------------------
+# Seul le Prog 12 etait connu. Les deux autres ont ete identifies par balayage
+# des holding registers 30 a 99, expose en text_sensors, puis confirmes par
+# aller-retour depuis le LCD :
+#
+#   Prog 12 : 50 % -> 51 %  =>  H37  500 -> 510
+#   Prog 21 : 20 % -> 21 %  =>  H82  200 -> 210
+#   Prog 13 : 95 % -> 96 %  =>  H95  950 -> 960
+#
+# La confirmation par changement etait INDISPENSABLE pour le 21 : la valeur
+#   200 n'a rien de distinctif, contrairement au 950 du Prog 13. Poser une
+#   entite ECRIVABLE sur un registre suppose, dans un voisinage qui contient
+#   des tensions de consigne (H84 = 2300, H89 = 2300) et la puissance
+#   nominale (H77 et H79 = 60000), aurait ete imprudent.
+#
+# LE BALAYAGE A ETE RETIRE une fois exploite - packages/gw-scan.yaml.
+# =============================================================================
+
+number:
+
+  # Prog 21 - le plancher. Doit rester SOUS le Prog 12.
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Low DC Cut-off SOC Setting Ond1"
+    address: 82
+    value_type: U_WORD
+    min_value: 5
+    max_value: 50
+    step: 1
+    multiply: 10
+    unit_of_measurement: "%"
+    icon: mdi:battery-alert-variant-outline
+    entity_category: config
+
+  # Prog 12 - bascule vers le reseau. Borne du manuel : 6 a 95 %.
+  # (l'ancienne plage 0-100 etait plus large que ce que l'onduleur accepte)
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Battery Low to Utility SOC Setting Ond1"
+    address: 37
+    value_type: U_WORD
+    min_value: 6
+    max_value: 95
+    step: 1
+    multiply: 10
+    unit_of_measurement: "%"
+    icon: mdi:transmission-tower-import
+    entity_category: config
+
+  # Prog 13 - retour sur batterie. Le haut de la bande d'hysteresis.
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Utility Back to Battery SOC Setting Ond1"
+    address: 95
+    value_type: U_WORD
+    min_value: 10
+    max_value: 100
+    step: 1
+    multiply: 10
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-high
+    entity_category: config

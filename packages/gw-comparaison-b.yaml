@@ -1,0 +1,195 @@
+# =============================================================================
+# COMPARAISON DES REGLAGES - COMPLEMENT
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+# Suite de gw-comparaison.yaml : les registres de la cartographie qui n'y
+# figuraient pas encore. Ensemble, les deux fichiers couvrent TOUT ce que
+# l'en-tete de growatt.yaml documente.
+#
+# POURQUOI PAR ENTITES ET NON PAR BALAYAGE
+#   gw-scan-diff.yaml devait lire H0-H99 sur les deux et tout comparer d'un
+#   coup. Il lit 100 registres sur 100 cote Ond1 et ZERO cote Ond2, avec des
+#   blocs de 20 comme de 10. Ond2 repond pourtant parfaitement aux lectures
+#   ciblees : tout ce fichier et tout gw-comparaison.yaml viennent de lui.
+#   Cause inconnue. Trois tentatives ont suffi - on prend la voie qui marche.
+#   Le scan reste en place, il signale honnetement son echec.
+#
+# CONSEQUENCE A ASSUMER : la couverture est celle de la cartographie LCD,
+#   qui n'est pas garantie exhaustive. Un reglage que personne n'a jamais
+#   touche sur l'ecran reste invisible. C'est mieux qu'avant, ce n'est pas
+#   une preuve d'identite complete entre les deux machines.
+#
+# H3-H6 : l'ORDRE est deduit des entites number d'Ond1 (charge start, charge
+#   end, out start, out end). NON VERIFIE par aller-retour LCD.
+# =============================================================================
+
+sensor:
+
+  # === Type de batterie - LE PLUS IMPORTANT DE CE FICHIER ==================
+  # Un onduleur en LI et l'autre en USE chargeraient la meme batterie selon
+  # deux lois differentes. A verifier en priorite.
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Code type batterie Ond1"
+    register_type: holding
+    address: 39
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    icon: mdi:battery-unknown
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Code type batterie Ond2"
+    register_type: holding
+    address: 39
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    icon: mdi:battery-unknown
+    entity_category: diagnostic
+
+  # === Mode d'entree AC - plage de tension reseau acceptee =================
+  # Determine qui accepte ou rejette le reseau. Deux modes differents et les
+  # deux onduleurs ne basculeraient pas au meme moment.
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Code mode entree AC Ond1"
+    register_type: holding
+    address: 8
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Code mode entree AC Ond2"
+    register_type: holding
+    address: 8
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  # === Seuil de coupure basse en VOLTS - le pendant du Prog 21 =============
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Seuil coupure basse V Ond1"
+    register_type: holding
+    address: 94
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Seuil coupure basse V Ond2"
+    register_type: holding
+    address: 94
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  # === Comportement en surcharge ===========================================
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Code surcharge Ond1"
+    register_type: holding
+    address: 20
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Code surcharge Ond2"
+    register_type: holding
+    address: 20
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  # === Recopies Ond2 des fenetres horaires et du buzzer ====================
+  # Ond1 a deja ses entites number et switch.
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Utility Charge Start Hour Setting Ond2"
+    register_type: holding
+    address: 3
+    value_type: U_WORD
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Utility Charge End Hour Setting Ond2"
+    register_type: holding
+    address: 4
+    value_type: U_WORD
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Utility Out Start Hour Setting Ond2"
+    register_type: holding
+    address: 5
+    value_type: U_WORD
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Utility Out End Hour Setting Ond2"
+    register_type: holding
+    address: 6
+    value_type: U_WORD
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Code buzzer Ond2"
+    register_type: holding
+    address: 22
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    icon: mdi:volume-high
+    entity_category: diagnostic

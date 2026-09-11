@@ -1,0 +1,243 @@
+# =============================================================================
+# COMPARAISON DES REGLAGES ENTRE LES DEUX ONDULEURS
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+# Complete par gw-comparaison-b.yaml (H39, H8, H94, H20, H3-H6, H22).
+#
+# POURQUOI
+#   Audit du 28/08/2026 : 11 reglages pilotables sur Ond1, UN SEUL visible
+#   sur Ond2 (le courant AC1). Impossible de verifier que les deux machines
+#   etaient configurees pareil - alors qu'elles ont tourne en parallele.
+#
+# =============================================================================
+# NE JAMAIS DUPLIQUER UN REGISTRE DEJA LU AILLEURS - incident du 28/08/2026
+# ---------------------------------------------------------------------------
+# Ce fichier a d'abord expose H1 et H2 cote Ond1 sous forme de capteurs, avec
+# skip_updates et force_new_range. Or Ond1 lisait DEJA ces deux registres via
+# ses entites select (Output Priority, Charge Priority), dans
+# gw-ond1-reglages.yaml.
+#
+# CONSEQUENCE : le force_new_range du doublon en H2 a ouvert une plage qui a
+# absorbe H3, H4, H5 et H6 - les quatre fenetres horaires d'Ond1, qui n'ont
+# pas de skip_updates. Elles ont herite du skip_updates: 20 de la plage et
+# ont cesse de remonter. Les quatre entites number sont passees a "Inconnu"
+# sur le tableau de bord.
+#
+# C'est EXACTEMENT le piege n.1 decrit en tete de growatt.yaml, relu et cite
+# le jour meme avant d'ecrire ce fichier. skip_updates appartient a la PLAGE,
+# pas a l'entite - et force_new_range ne protege que l'item qui le porte, pas
+# ses voisins de la plage qu'il vient d'ouvrir.
+#
+# REGLE A APPLIQUER : avant d'ajouter un registre ici, verifier qu'aucune
+# autre entite ne le lit deja. Si Ond1 a deja un number, un select ou un
+# switch sur ce registre, le tableau de bord doit pointer VERS CETTE
+# ENTITE-LA. On n'ajoute ici que le cote Ond2, ou les registres qu'aucun des
+# deux n'expose.
+#
+# D'ou l'absence de H1 et H2 cote Ond1 dans ce fichier : ils sont lus par
+# select.<...>_output_priority_ond1 et select.<...>_charge_priority_ond1.
+# =============================================================================
+#
+# LA PISTE H18, FERMEE
+#   Les deux onduleurs regulent a 232.2 V et 229.9 V une fois decouples.
+#   On a d'abord soupconne une consigne differente. VERIFIE : H18 vaut 1 sur
+#   les DEUX, et c'est une enumeration (1 = 230 V), pas une tension reglable.
+#   L'ecart ne vient donc pas d'un reglage. Reste le firmware DSP.
+#
+# ECHELLES : H18 et H19 sont lus SANS multiply - ce sont des enumerations.
+#   H35, H36, H37, H82, H95 portent le x10 documente dans growatt.yaml.
+#
+# CADENCE : skip_updates: 20 = relecture toutes les 10 minutes. Assez rapide
+#   pour voir l'effet d'une correction faite sur l'ecran de l'onduleur.
+# =============================================================================
+
+sensor:
+
+  # === H18 - CONSIGNE DE TENSION DE SORTIE =================================
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Consigne tension sortie Ond1"
+    register_type: holding
+    address: 18
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    icon: mdi:sine-wave
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Consigne tension sortie Ond2"
+    register_type: holding
+    address: 18
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    icon: mdi:sine-wave
+    entity_category: diagnostic
+
+  # === H19 - CONSIGNE DE FREQUENCE =========================================
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Consigne frequence Ond1"
+    register_type: holding
+    address: 19
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    icon: mdi:sine-wave
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Consigne frequence Ond2"
+    register_type: holding
+    address: 19
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    icon: mdi:sine-wave
+    entity_category: diagnostic
+
+  # === H35 / H36 - TENSIONS DE CHARGE (x10) ================================
+  # Doivent concorder entre deux onduleurs sur une meme batterie : deux
+  # consignes d'absorption differentes, et l'un surcharge pendant que
+  # l'autre croit avoir fini.
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Tension absorption Ond1"
+    register_type: holding
+    address: 35
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Tension absorption Ond2"
+    register_type: holding
+    address: 35
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Tension floating Ond1"
+    register_type: holding
+    address: 36
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Tension floating Ond2"
+    register_type: holding
+    address: 36
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  # === RECOPIES OND2 SEULEMENT =============================================
+  # Ond1 a deja ses entites number/select/switch sur ces registres : le
+  # tableau de bord pointe vers elles. Rien ici cote Ond1.
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Battery Low to Utility SOC Setting Ond2"
+    register_type: holding
+    address: 37
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Utility Back to Battery SOC Setting Ond2"
+    register_type: holding
+    address: 95
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Low DC Cut-off SOC Setting Ond2"
+    register_type: holding
+    address: 82
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    filters: [multiply: 0.1]
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Max Charge Current Ond2"
+    register_type: holding
+    address: 34
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  # H1 et H2 cote Ond2 uniquement. Cote Ond1, voir les entites select.
+  # Codes bruts, non traduits : on compare deux nombres, ce qui suffit et
+  # evite d'inventer une table d'equivalence non verifiee.
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Code priorite sortie Ond2"
+    register_type: holding
+    address: 1
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Code priorite charge Ond2"
+    register_type: holding
+    address: 2
+    value_type: U_WORD
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic

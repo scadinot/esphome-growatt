@@ -1,0 +1,198 @@
+# =============================================================================
+# Onduleur 1 - LIBELLES TEXTE ET CAPTEURS D'ALARME
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# Ces entites traduisent en clair les codes bruts lus par gw-ond1-mesures,
+# lesquels sont en internal: true pour ne pas afficher un entier dans HA.
+#
+# Les libelles RTC sont dans packages/gw-horloges.yaml.
+# =============================================================================
+
+text_sensor:
+
+  # ---------------------------------------------------------------------------
+  # Numero de serie - chaine ASCII dans les holding registers 23-27.
+  # C'est la SEULE facon de savoir quelle unite physique porte quelle adresse.
+  #
+  # force_new_range EST OBLIGATOIRE ICI - voir le piege skip_updates decrit
+  # dans growatt.yaml. Sans lui, le skip_updates contamine toute la plage
+  # fusionnee et affame les selects et numbers voisins.
+  # ---------------------------------------------------------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Serial Number Ond1"
+    id: serial_number
+    register_type: holding
+    address: 23
+    register_count: 5
+    response_size: 10
+    raw_encode: ANSI
+    skip_updates: 60
+    force_new_range: true
+    icon: mdi:identifier
+    entity_category: diagnostic
+
+  - platform: template
+    name: "${upper_devicename} System Status Text Ond1"
+    id: system_status_text
+    lambda: |-
+      int status = (int) id(system_status).state;
+      switch (status) {
+        case 0: return {"Standby"};
+        case 1: return {"No Use"};
+        case 2: return {"Discharge"};
+        case 3: return {"Fault"};
+        case 4: return {"Flash"};
+        case 5: return {"PV Charge"};
+        case 6: return {"AC Charge"};
+        case 7: return {"Combine Charge"};
+        case 8: return {"Combine Charge & Bypass"};
+        case 9: return {"PV Charge & Bypass"};
+        case 10: return {"AC Charge & Bypass"};
+        case 11: return {"Bypass"};
+        case 12: return {"PV Charge & Discharge"};
+        default: return {"Unknown"};
+      }
+    update_interval: 30s
+
+  - platform: template
+    name: "${upper_devicename} Fault Text Ond1"
+    lambda: |-
+      int code = (int) id(fault_code).state;
+      switch (code) {
+        case 0:  return {"OK"};
+        case 1:  return {"Fan fault"};
+        case 2:  return {"Over temperature"};
+        case 3:  return {"Battery over-charged"};
+        case 5:  return {"Output short circuit"};
+        case 6:  return {"Output voltage too high"};
+        case 7:  return {"Overload timeout"};
+        case 8:  return {"Bus voltage too high"};
+        case 9:  return {"Bus soft start failed"};
+        case 51: return {"Over current / surge"};
+        case 52: return {"Bus voltage too low"};
+        case 53: return {"Inverter soft start failed"};
+        case 55: return {"Over DC in AC output"};
+        case 56: return {"Battery connection open"};
+        case 57: return {"Current sensor failed"};
+        case 58: return {"Output voltage too low"};
+        case 60: return {"Negative power fault"};
+        case 61: return {"PV voltage too high"};
+        case 62: return {"Internal comm error"};
+        case 80: return {"CAN fault"};
+        case 81: return {"Host loss"};
+        default: return {"Unknown fault " + to_string(code)};
+      }
+    update_interval: 30s
+
+  - platform: template
+    name: "${upper_devicename} Warning Text Ond1"
+    lambda: |-
+      int code = (int) id(warning_code).state;
+      switch (code) {
+        case 0:  return {"OK"};
+        case 1:  return {"Fan locked"};
+        case 2:  return {"Over temperature"};
+        case 3:  return {"Battery over-charged"};
+        case 4:  return {"Low battery"};
+        case 7:  return {"Overload"};
+        case 10: return {"Output power derating"};
+        case 12: return {"Solar stop - low battery"};
+        case 13: return {"Solar stop - high PV voltage"};
+        case 14: return {"Solar stop - overload"};
+        case 15: return {"Parallel input grid different"};
+        case 16: return {"Parallel input phase error"};
+        case 17: return {"Parallel output phase loss"};
+        case 18: return {"Buck over current"};
+        case 19: return {"Battery disconnect"};
+        case 20: return {"BMS communication error"};
+        case 21: return {"PV power insufficient"};
+        case 22: return {"Parallel forbidden no battery"};
+        case 25: return {"Parallel capacity mismatch"};
+        case 33: return {"BMS communication loss"};
+        case 34: return {"Cell over voltage"};
+        case 35: return {"Cell under voltage"};
+        case 36: return {"Total over voltage"};
+        case 37: return {"Total under voltage"};
+        case 38: return {"Discharge over current"};
+        case 39: return {"Charge over current"};
+        case 40: return {"Discharge over temperature"};
+        case 41: return {"Charge over temperature"};
+        case 42: return {"Mosfet over temperature"};
+        case 43: return {"Battery over temperature"};
+        case 44: return {"Battery under temperature"};
+        case 45: return {"System shutdown"};
+        default: return {"Unknown warning " + to_string(code)};
+      }
+    update_interval: 30s
+
+binary_sensor:
+
+  - platform: template
+    name: "${upper_devicename} Fault Active Ond1"
+    lambda: return id(fault_code).state > 0;
+    device_class: problem
+
+  - platform: template
+    name: "${upper_devicename} Warning Active Ond1"
+    lambda: return id(warning_code).state > 0;
+    device_class: problem
+
+  - platform: template
+    name: "${upper_devicename} [BMS] Communication Error Ond1"
+    lambda: return id(warning_code).state == 20 || id(warning_code).state == 33;
+    device_class: problem
+
+  # Bit 0x0020 : BmsCell OverVolt - surtension cellule individuelle
+  - platform: template
+    name: "${upper_devicename} [BMS] Cell Over Voltage Ond1"
+    lambda: return (((int) id(warning_code_high).state) & 0x0020) != 0;
+    device_class: problem
+
+  # Bit 0x0040 : BmsTotalOverVolt - surtension pack total
+  - platform: template
+    name: "${upper_devicename} [BMS] Pack Over Voltage Ond1"
+    lambda: return (((int) id(warning_code_high).state) & 0x0040) != 0;
+    device_class: problem
+
+  # Bit 0x0080 : BmsDischgOverCurr - surintensite decharge
+  - platform: template
+    name: "${upper_devicename} [BMS] Discharge Over Current Ond1"
+    lambda: return (((int) id(warning_code_high).state) & 0x0080) != 0;
+    device_class: problem
+
+  # Bit 0x0100 : BmsChgOverCurr - surintensite charge
+  - platform: template
+    name: "${upper_devicename} [BMS] Charge Over Current Ond1"
+    lambda: return (((int) id(warning_code_high).state) & 0x0100) != 0;
+    device_class: problem
+
+  # Bit 0x0200 : BmsOverTemp - surchauffe BMS
+  - platform: template
+    name: "${upper_devicename} [BMS] Over Temperature Ond1"
+    lambda: return (((int) id(warning_code_high).state) & 0x0200) != 0;
+    device_class: heat
+
+  - platform: template
+    name: "${upper_devicename} [BMS] Battery Over Charged Ond1"
+    lambda: return id(battery_over_charge).state == 1;
+    device_class: problem
+
+  - platform: template
+    name: "${upper_devicename} Charging Ond1"
+    lambda: |-
+      int status = (int) id(system_status).state;
+      return (status == 5 || status == 6 || status == 7 || status == 8 || status == 9 || status == 10);
+    device_class: battery_charging
+
+  - platform: template
+    name: "${upper_devicename} Discharging Ond1"
+    lambda: |-
+      int status = (int) id(system_status).state;
+      return (status == 2 || status == 12);
+
+  - platform: template
+    name: "${upper_devicename} Grid Available Ond1"
+    lambda: return id(grid_voltage).state > 180;
+    device_class: power

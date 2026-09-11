@@ -1,0 +1,458 @@
+# =============================================================================
+# Onduleur 1 - CAPTEURS. Serie KHM8F3X0XD, adresse Modbus 0x01.
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# ENTITES RETIREES ET POURQUOI (menage du 22/08/2026)
+#   - les puissances apparentes (VA) : doublons des puissances actives, la
+#     charge de l'onduleur etant deja donnee par Load Percent
+#   - Bus Voltage, Output DC Voltage, Battery Port et Bus Voltage (DSP) :
+#     tensions internes au convertisseur, non actionnables
+#   - Rated Power/VA, Device Type, PV Input Mode, Over Temp Restart, Modbus
+#     Address : constantes, reportees dans l'en-tete de growatt.yaml
+#   - Max Charge Current (holding 34) : non modifiable en mode LI, sa valeur
+#     (400) ne correspond pas au LCD (100 A) et son echelle restait une
+#     hypothese - entite trompeuse
+#   - Warning Value (input 43) : entier brut de signification incertaine
+#
+# EN internal: true - actifs mais invisibles dans HA, leur contenu etant
+#   restitue par un libelle texte ou un capteur d'alarme de gw-ond1-libelles.
+#
+# Entites PV commentees : packages/gw-pv-off.yaml.
+# Composantes de l'horloge : packages/gw-horloges.yaml.
+# =============================================================================
+
+sensor:
+
+  # Restitue par "System Status Text Ond1"
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} System Status Ond1"
+    id: system_status
+    internal: true
+    register_type: read
+    address: 0
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  # --- INPUT REG 9-16 : sortie AC et charge AC ------------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Output Power Ond1"
+    id: output_power
+    register_type: read
+    address: 9
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Charge Power Ond1"
+    id: ac_charge_power
+    register_type: read
+    address: 13
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  # --- INPUT REG 17-27 : batterie, reseau, sortie ---------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} [BMS] Battery Voltage Ond1"
+    id: battery_voltage
+    register_type: read
+    address: 17
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} [BMS] Battery SOC Ond1"
+    id: battery_soc
+    register_type: read
+    address: 18
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Grid Voltage Ond1"
+    id: grid_voltage
+    register_type: read
+    address: 20
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Grid Frequency Ond1"
+    id: grid_frequency
+    register_type: read
+    address: 21
+    value_type: U_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Output Voltage Ond1"
+    id: output_voltage
+    register_type: read
+    address: 22
+    value_type: U_WORD
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Output Frequency Ond1"
+    id: output_frequency
+    register_type: read
+    address: 23
+    value_type: U_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Inverter Temperature Ond1"
+    id: inverter_temp
+    register_type: read
+    address: 25
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} DC-DC Temperature Ond1"
+    id: dcdc_temp
+    register_type: read
+    address: 26
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Load Percent Ond1"
+    id: load_percent
+    register_type: read
+    address: 27
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # --- INPUT REG 30-42 : fonctionnement, courants, defauts ------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Work Time Total Ond1"
+    id: work_time_total
+    register_type: read
+    address: 30
+    value_type: U_DWORD
+    unit_of_measurement: "h"
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.0001388889
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Output Current Ond1"
+    id: output_current
+    register_type: read
+    address: 34
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Inverter Current Ond1"
+    id: inverter_current
+    register_type: read
+    address: 35
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Input Power Ond1"
+    id: ac_input_power
+    register_type: read
+    address: 36
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  # Restitue par "Fault Text Ond1" et "Fault Active Ond1"
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Fault Code Ond1"
+    id: fault_code
+    internal: true
+    register_type: read
+    address: 40
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  # Restitue par "Warning Text Ond1" et "Warning Active Ond1"
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Warning Code Ond1"
+    id: warning_code
+    internal: true
+    register_type: read
+    address: 41
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  # Bitmask brut : alimente les cinq capteurs d'alarme [BMS]
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} BMS Warning Bitmask High Ond1"
+    id: warning_code_high
+    internal: true
+    register_type: read
+    address: 42
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  # --- INPUT REG 56-67 : energies reseau et batterie ------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Charge Energy Today Ond1"
+    id: ac_charge_energy_today
+    register_type: read
+    address: 56
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Charge Energy Total Ond1"
+    id: ac_charge_energy_total
+    register_type: read
+    address: 58
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} [BMS] Battery Discharge Today Ond1"
+    id: battery_discharge_today
+    register_type: read
+    address: 60
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} [BMS] Battery Discharge Total Ond1"
+    id: battery_discharge_total
+    register_type: read
+    address: 62
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Output Energy Today Ond1"
+    id: ac_output_energy_today
+    register_type: read
+    address: 64
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Output Energy Total Ond1"
+    id: ac_output_energy_total
+    register_type: read
+    address: 66
+    value_type: U_DWORD
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # --- INPUT REG 68-82 : courants, puissances, ventilation ------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Charge Current Ond1"
+    id: ac_charge_current
+    register_type: read
+    address: 68
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # S_DWORD et non U_DWORD : ce registre passe en negatif (observe a -1, lu
+  # comme 4294967295 en non signe, soit un pic parasite de 4,29e8 W dans HA).
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} AC Discharge Power Ond1"
+    id: ac_discharge_power
+    register_type: read
+    address: 69
+    value_type: S_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} [BMS] Battery Discharge Power Ond1"
+    id: battery_discharge_power
+    register_type: read
+    address: 73
+    value_type: U_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} [BMS] Battery Power Ond1"
+    id: battery_power
+    register_type: read
+    address: 77
+    value_type: S_DWORD
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    filters:
+      - multiply: 0.1
+
+  # Restitue par "[BMS] Battery Over Charged Ond1"
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} [BMS] Battery Over Charge Flag Ond1"
+    id: battery_over_charge
+    internal: true
+    register_type: read
+    address: 80
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Inverter Fan Speed Ond1"
+    id: inverter_fan_speed
+    register_type: read
+    address: 82
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+
+  # Courant batterie deduit : puissance / tension.
+  - platform: template
+    name: "${upper_devicename} [BMS] Battery Current Ond1"
+    id: battery_current
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 1
+    lambda: |-
+      if (isnan(id(battery_power).state) || isnan(id(battery_voltage).state)) return NAN;
+      if (id(battery_voltage).state == 0) return NAN;
+      return id(battery_power).state / id(battery_voltage).state;
+    update_interval: 30s

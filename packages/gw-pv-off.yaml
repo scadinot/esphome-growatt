@@ -1,0 +1,451 @@
+# =============================================================================
+# PV ET GENERATEUR - EN ATTENTE DE RACCORDEMENT
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# Ni panneaux ni groupe electrogene ne sont raccordes au 23/08/2026. Tout est
+# COMMENTE, rien n'est supprime. Un paquet sans aucune cle est valide.
+#
+# POUR REACTIVER : retirer le "# " en tete des lignes voulues, en pensant a
+# retablir les cles de premier niveau (sensor:, binary_sensor:, number:).
+#
+# CE QUI EST ICI, pour les DEUX onduleurs :
+#   - tensions, puissances et courants PV1/PV2 ......... input 1 a 8
+#   - energies PV1/PV2 du jour et totales .............. input 48 a 55
+#   - temperatures Buck1 et Buck2 ...................... input 32-33
+#   - vitesse du ventilateur MPPT ...................... input 81
+#   - PV Total Power et PV Producing ................... calcules
+#   - Generator Charge Current (GEN1) .................. holding 83
+#
+# Buck1 et Buck2 sont les deux etages du chargeur SOLAIRE, d'ou leur presence
+#   ici - cf. le libelle d'origine "PV1 Current (Buck1)".
+#
+# GEN1 ne se propage pas d'un onduleur a l'autre, comme AC1 : la recopie est
+#   deja ecrite ci-dessous, onduleur 1 maitre.
+#
+# RESTE ACTIF ailleurs malgre l'apparence : Charge Priority (CSO/SNU/OSO)
+#   gouverne la charge des maintenant - en OSO l'onduleur refuserait le
+#   reseau. Et les libelles d'alarme mentionnant le solaire ne sont que des
+#   chaines dans un switch/case.
+#
+# EFFET DE BORD : les plages Modbus correspondantes ne sont pas interrogees,
+#   le cycle de scrutation en est raccourci. A resurveiller le jour de la
+#   reactivation - voir la note sur "Duplicate modbus command found" dans
+#   growatt.yaml.
+# =============================================================================
+
+# --- ONDULEUR 1 : production PV, input 1 a 8 ---------------------------------
+# sensor:
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV1 Voltage Ond1"
+#     id: pv1_voltage
+#     register_type: read
+#     address: 1
+#     value_type: U_WORD
+#     unit_of_measurement: "V"
+#     device_class: voltage
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV2 Voltage Ond1"
+#     id: pv2_voltage
+#     register_type: read
+#     address: 2
+#     value_type: U_WORD
+#     unit_of_measurement: "V"
+#     device_class: voltage
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV1 Power Ond1"
+#     id: pv1_power
+#     register_type: read
+#     address: 3
+#     value_type: U_DWORD
+#     unit_of_measurement: "W"
+#     device_class: power
+#     state_class: measurement
+#     accuracy_decimals: 0
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV2 Power Ond1"
+#     id: pv2_power
+#     register_type: read
+#     address: 5
+#     value_type: U_DWORD
+#     unit_of_measurement: "W"
+#     device_class: power
+#     state_class: measurement
+#     accuracy_decimals: 0
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV1 Current (Buck1) Ond1"
+#     register_type: read
+#     address: 7
+#     value_type: U_WORD
+#     unit_of_measurement: "A"
+#     device_class: current
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV2 Current (Buck2) Ond1"
+#     register_type: read
+#     address: 8
+#     value_type: U_WORD
+#     unit_of_measurement: "A"
+#     device_class: current
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: template
+#     name: "${upper_devicename} PV Total Power Ond1"
+#     id: pv_total_power
+#     unit_of_measurement: "W"
+#     device_class: power
+#     state_class: measurement
+#     accuracy_decimals: 0
+#     lambda: |-
+#       if (isnan(id(pv1_power).state) || isnan(id(pv2_power).state)) return NAN;
+#       return id(pv1_power).state + id(pv2_power).state;
+#     update_interval: 30s
+#
+# --- ONDULEUR 1 : Buck1 / Buck2 et energies PV -------------------------------
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} Buck1 Temperature Ond1"
+#     register_type: read
+#     address: 32
+#     value_type: U_WORD
+#     unit_of_measurement: "°C"
+#     device_class: temperature
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} Buck2 Temperature Ond1"
+#     register_type: read
+#     address: 33
+#     value_type: U_WORD
+#     unit_of_measurement: "°C"
+#     device_class: temperature
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV1 Energy Today Ond1"
+#     register_type: read
+#     address: 48
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV1 Energy Total Ond1"
+#     register_type: read
+#     address: 50
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV2 Energy Today Ond1"
+#     register_type: read
+#     address: 52
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} PV2 Energy Total Ond1"
+#     register_type: read
+#     address: 54
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} MPPT Fan Speed Ond1"
+#     register_type: read
+#     address: 81
+#     value_type: U_WORD
+#     unit_of_measurement: "%"
+#     state_class: measurement
+#     accuracy_decimals: 0
+#
+# --- ONDULEUR 2 : memes entites, suffixe Ond2 --------------------------------
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV1 Voltage Ond2"
+#     register_type: read
+#     address: 1
+#     value_type: U_WORD
+#     unit_of_measurement: "V"
+#     device_class: voltage
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV2 Voltage Ond2"
+#     register_type: read
+#     address: 2
+#     value_type: U_WORD
+#     unit_of_measurement: "V"
+#     device_class: voltage
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV1 Power Ond2"
+#     id: pv1_power_2
+#     register_type: read
+#     address: 3
+#     value_type: U_DWORD
+#     unit_of_measurement: "W"
+#     device_class: power
+#     state_class: measurement
+#     accuracy_decimals: 0
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV2 Power Ond2"
+#     id: pv2_power_2
+#     register_type: read
+#     address: 5
+#     value_type: U_DWORD
+#     unit_of_measurement: "W"
+#     device_class: power
+#     state_class: measurement
+#     accuracy_decimals: 0
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV1 Current (Buck1) Ond2"
+#     register_type: read
+#     address: 7
+#     value_type: U_WORD
+#     unit_of_measurement: "A"
+#     device_class: current
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV2 Current (Buck2) Ond2"
+#     register_type: read
+#     address: 8
+#     value_type: U_WORD
+#     unit_of_measurement: "A"
+#     device_class: current
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: template
+#     name: "${upper_devicename} PV Total Power Ond2"
+#     id: pv_total_power_2
+#     unit_of_measurement: "W"
+#     device_class: power
+#     state_class: measurement
+#     accuracy_decimals: 0
+#     lambda: |-
+#       if (isnan(id(pv1_power_2).state) || isnan(id(pv2_power_2).state)) return NAN;
+#       return id(pv1_power_2).state + id(pv2_power_2).state;
+#     update_interval: 30s
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} Buck1 Temperature Ond2"
+#     register_type: read
+#     address: 32
+#     value_type: U_WORD
+#     unit_of_measurement: "°C"
+#     device_class: temperature
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} Buck2 Temperature Ond2"
+#     register_type: read
+#     address: 33
+#     value_type: U_WORD
+#     unit_of_measurement: "°C"
+#     device_class: temperature
+#     state_class: measurement
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV1 Energy Today Ond2"
+#     register_type: read
+#     address: 48
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV1 Energy Total Ond2"
+#     register_type: read
+#     address: 50
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV2 Energy Today Ond2"
+#     register_type: read
+#     address: 52
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} PV2 Energy Total Ond2"
+#     register_type: read
+#     address: 54
+#     value_type: U_DWORD
+#     unit_of_measurement: "kWh"
+#     device_class: energy
+#     state_class: total_increasing
+#     accuracy_decimals: 1
+#     filters:
+#       - multiply: 0.1
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} MPPT Fan Speed Ond2"
+#     register_type: read
+#     address: 81
+#     value_type: U_WORD
+#     unit_of_measurement: "%"
+#     state_class: measurement
+#     accuracy_decimals: 0
+
+# --- Capteurs de production, dependent des totaux PV -------------------------
+# binary_sensor:
+#   - platform: template
+#     name: "${upper_devicename} PV Producing Ond1"
+#     lambda: return id(pv_total_power).state > 10;
+#     device_class: power
+#
+#   - platform: template
+#     name: "${upper_devicename} PV Producing Ond2"
+#     lambda: return id(pv_total_power_2).state > 10;
+#     device_class: power
+
+# --- GENERATEUR : Prog 11 sous-reglage GEN1, holding 83 ----------------------
+# Ne se propage pas d'un onduleur a l'autre, comme AC1. La recopie est ecrite,
+# onduleur 1 maitre, meme garde anti-bavardage que pour AC1.
+# number:
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt
+#     name: "${upper_devicename} Generator Charge Current Setting (GEN1) Ond1"
+#     id: gen_charge_current_number
+#     address: 83
+#     value_type: U_WORD
+#     min_value: 0
+#     max_value: 80
+#     step: 1
+#     unit_of_measurement: "A"
+#     entity_category: config
+#     on_value:
+#       - if:
+#           condition:
+#             lambda: |-
+#               if (isnan(id(gen_charge_current_number_2).state)) return false;
+#               return fabs(id(gen_charge_current_number_2).state - x) > 0.5f;
+#           then:
+#             - number.set:
+#                 id: gen_charge_current_number_2
+#                 value: !lambda 'return x;'
+#
+#   - platform: modbus_controller
+#     modbus_controller_id: growatt2
+#     name: "${upper_devicename} Generator Charge Current Setting (GEN1) Ond2"
+#     id: gen_charge_current_number_2
+#     address: 83
+#     value_type: U_WORD
+#     min_value: 0
+#     max_value: 80
+#     step: 1
+#     unit_of_measurement: "A"
+#     entity_category: config

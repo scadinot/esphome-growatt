@@ -1,0 +1,209 @@
+# =============================================================================
+# BALAYAGE COMPARATIF DES DEUX ONDULEURS - H0 a H99
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# POURQUOI
+#   La cartographie des holding registers de growatt.yaml a ete etablie PAR
+#   ALLER-RETOUR LCD : elle ne contient que ce que quelqu'un a pense a
+#   toucher sur l'ecran. Comparer Ond1 et Ond2 a partir de cette carte ne
+#   prouve rien sur ce qu'elle ignore. Cet outil lit TOUT.
+#
+# TROIS LECONS DU 28/08/2026 - toutes le meme piege
+#
+#   1. UN SILENCE N'EST PAS UN RESULTAT. Premier essai : zero ligne [diff].
+#      Tentant de conclure "les deux sont identiques". FAUX - on SAIT que
+#      H9-H14 et H23-H27 different. D'ou les COMPTEURS.
+#
+#   2. NE PAS PUBLIER UN RESULTAT DANS LES LOGS SEULEMENT. Le tampon se
+#      ferme avant la fin d'un script de 30 s. D'ou les ENTITES.
+#
+#   3. LE GARDE-FOU DOIT COUVRIR LES DEUX COTES. Troisieme essai :
+#      Ond1 = 100 registres, Ond2 = 0, et l'entite affichait "Aucun ecart".
+#      Le repli ne testait que scan_n1. Une comparaison sans second terme
+#      n'est pas une comparaison negative, c'est une absence de comparaison.
+#      Corrige : les deux compteurs sont testes.
+#
+# POURQUOI DES BLOCS DE 10 ET NON DE 20
+#   Ond1 rendait ses 100 registres par blocs de 20. Ond2 n'en rendait AUCUN
+#   dans les memes conditions, alors qu'il repond parfaitement aux lectures
+#   courtes (firmware, serie, tous les reglages de gw-comparaison.yaml
+#   viennent de lui). Hypothese : sa limite de taille de bloc est plus
+#   basse - ce qui serait coherent avec un firmware different (100.08/101.07
+#   contre 100.06/101.05). Blocs de 10 pour rester sous la limite des deux.
+#
+# COMMENT S'EN SERVIR
+#   Appuyer sur "Scan comparatif Ond1-Ond2", attendre 45 s, puis lire :
+#     Scan registres Ond1 ... doit valoir 100
+#     Scan registres Ond2 ... doit valoir 100
+#     Scan ecarts .......... nombre de registres differents
+#     Scan detail .......... la liste, format H<reg>:<Ond1>/<Ond2>
+#   LIRE LES DEUX COMPTEURS D'ABORD. Si l'un n'est pas a 100, le reste est
+#   nul et non avenu.
+#
+# TEMOINS DE BON FONCTIONNEMENT
+#   H9 a H14 (firmware) et H23 a H27 (serie) DOIVENT figurer dans les ecarts.
+#   S'ils n'y sont pas, le balayage a echoue, quels que soient les compteurs.
+#
+# ECARTS ATTENDUS, SANS SIGNIFICATION
+#   H9-H14, H23-H27 ... firmware et serie, cf. ci-dessus.
+#   H34 .............. courant de charge max : valeur DYNAMIQUE imposee par
+#                      le BMS en mode lithium. A affiche 100, 280 puis 400
+#                      cote Ond1 selon les jours, 55 cote Ond2 qui n'a pas de
+#                      lien BMS complet. Ce n'est pas une consigne.
+#   H45-H50 .......... horloge, EXCLUE du diff : les deux RTC derivent.
+#
+# TOUT LE RESTE QUI SORT EST A EXAMINER.
+# =============================================================================
+
+globals:
+  - id: scan_ond1
+    type: uint16_t[100]
+    restore_value: no
+
+  - id: scan_n1
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: scan_n2
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: scan_ndiff
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: scan_txt
+    type: std::string
+    restore_value: no
+
+script:
+
+  - id: scan_comparatif
+    mode: single
+    then:
+      - lambda: |-
+          for (int i = 0; i < 100; i++) id(scan_ond1)[i] = 0xFFFF;
+          id(scan_n1) = 0;
+          id(scan_n2) = 0;
+          id(scan_ndiff) = 0;
+          id(scan_txt) = "";
+          id(scan_detail).publish_state("Scan en cours...");
+          auto *c = id(growatt);
+          for (int b = 0; b < 100; b += 10) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus_controller::ModbusRegisterType::HOLDING, b, 10,
+                [](esphome::modbus_controller::ModbusRegisterType, uint16_t start,
+                   const std::vector<uint8_t> &data) {
+                  for (int i = 0; i < 10; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    int reg = start + i;
+                    if (reg >= 100) break;
+                    id(scan_ond1)[reg] = (data[p] << 8) | data[p + 1];
+                    id(scan_n1)++;
+                  }
+                }));
+          }
+
+      - delay: 20s
+
+      - lambda: |-
+          auto *c = id(growatt2);
+          for (int b = 0; b < 100; b += 10) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus_controller::ModbusRegisterType::HOLDING, b, 10,
+                [](esphome::modbus_controller::ModbusRegisterType, uint16_t start,
+                   const std::vector<uint8_t> &data) {
+                  char buf[32];
+                  for (int i = 0; i < 10; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    int reg = start + i;
+                    if (reg >= 100) break;
+                    id(scan_n2)++;
+                    if (reg >= 45 && reg <= 50) continue;
+                    uint16_t v1 = id(scan_ond1)[reg];
+                    if (v1 == 0xFFFF) continue;
+                    uint16_t v2 = (data[p] << 8) | data[p + 1];
+                    if (v1 != v2) {
+                      id(scan_ndiff)++;
+                      ESP_LOGW("diff", "H%d : Ond1=%u  Ond2=%u", reg, v1, v2);
+                      snprintf(buf, sizeof(buf), "H%d:%u/%u ", reg, v1, v2);
+                      id(scan_txt) += buf;
+                    }
+                  }
+                }));
+          }
+
+      - delay: 20s
+
+      - lambda: |-
+          id(scan_r1).publish_state(id(scan_n1));
+          id(scan_r2).publish_state(id(scan_n2));
+          id(scan_rd).publish_state(id(scan_ndiff));
+
+          // Le repli teste LES DEUX compteurs. Une comparaison sans second
+          // terme n'est pas un resultat negatif - c'est un echec.
+          std::string t;
+          if (id(scan_n1) == 0 && id(scan_n2) == 0)
+            t = "ECHEC : aucun des deux onduleurs n'a repondu";
+          else if (id(scan_n1) == 0)
+            t = "ECHEC : Ond1 n'a pas repondu, rien compare";
+          else if (id(scan_n2) == 0)
+            t = "ECHEC : Ond2 n'a pas repondu, rien compare";
+          else if (id(scan_txt).empty())
+            t = "Aucun ecart sur les registres lus des deux cotes";
+          else
+            t = id(scan_txt);
+
+          if (t.size() > 250) t = t.substr(0, 238) + " ...(voir logs)";
+          id(scan_detail).publish_state(t);
+          ESP_LOGW("scan", "Bilan : Ond1=%d Ond2=%d registres, %d ecarts",
+                   id(scan_n1), id(scan_n2), id(scan_ndiff));
+
+sensor:
+  - platform: template
+    name: "${upper_devicename} Scan registres Ond1"
+    id: scan_r1
+    accuracy_decimals: 0
+    icon: mdi:counter
+    entity_category: diagnostic
+    update_interval: never
+
+  - platform: template
+    name: "${upper_devicename} Scan registres Ond2"
+    id: scan_r2
+    accuracy_decimals: 0
+    icon: mdi:counter
+    entity_category: diagnostic
+    update_interval: never
+
+  - platform: template
+    name: "${upper_devicename} Scan ecarts"
+    id: scan_rd
+    accuracy_decimals: 0
+    icon: mdi:not-equal-variant
+    entity_category: diagnostic
+    update_interval: never
+
+text_sensor:
+  - platform: template
+    name: "${upper_devicename} Scan detail"
+    id: scan_detail
+    icon: mdi:format-list-numbered
+    entity_category: diagnostic
+    update_interval: never
+
+button:
+  - platform: template
+    name: "${upper_devicename} Scan comparatif Ond1-Ond2"
+    icon: mdi:compare-horizontal
+    entity_category: diagnostic
+    on_press:
+      - script.execute: scan_comparatif

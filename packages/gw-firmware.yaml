@@ -1,0 +1,120 @@
+# =============================================================================
+# VERSIONS FIRMWARE DES DEUX ONDULEURS
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# POURQUOI UN FICHIER A PART plutot qu'une addition dans gw-ond1-libelles :
+#   l'outillage de lecture ne rend que les fichiers de la racine, jamais le
+#   contenu de packages/. Reecrire un paquet existant imposerait de le
+#   retaper de memoire - donc de risquer d'en perdre un morceau. Un fichier
+#   neuf ne coute qu'une ligne d'inclusion et ne met rien en peril.
+#
+# LES REGISTRES - VERIFIES SUR LE MATERIEL le 27/08/2026
+#   H9-H11  ... firmware principal      3 registres = 6 caracteres ASCII
+#   H12-H14 ... firmware du DSP         3 registres = 6 caracteres ASCII
+#   H23-H27 ... numero de serie         5 registres = 10 caracteres
+#
+#   Les adresses venaient du document Growatt et non d'un aller-retour LCD.
+#   Elles sont confirmees : les quatre entites rendent des chaines propres
+#   et coherentes du premier coup.
+#
+# CE QUE LA LECTURE A REVELE
+#   Ond1  firmware 100.06   DSP 101.05
+#   Ond2  firmware 100.08   DSP 101.07
+#
+#   LES DEUX ONDULEURS N'ONT PAS LE MEME FIRMWARE. Ond2 est deux revisions
+#   en avance, sur les deux processeurs. Deux unites achetees ensemble mais
+#   fabriquees a des dates differentes - exactement comme les deux BMS Docan
+#   en V1.0.1 et V1.0.4.
+#
+#   POURQUOI C'EST PLUS QU'UNE CURIOSITE : c'est le DSP qui regule la tension
+#   de sortie. Deux versions differentes n'ont aucune raison de reguler a
+#   l'identique - et on mesure justement 1 V d'ecart entre les deux sorties,
+#   celui qui fait circuler une centaine de watts d'Ond1 vers Ond2 depuis la
+#   perte du reseau le 26/08. Ce n'est pas une preuve, c'est un mecanisme
+#   plausible la ou il ne devrait y avoir aucune difference.
+#
+#   Le partage de charge en parallele suppose un algorithme identique des
+#   deux cotes. A verifier au manuel avant de laisser tourner les deux.
+#
+# PAS D'ENTITE DE COMPARAISON : elle a existe ("Firmware Ecart Ond1-Ond2",
+#   retiree le 27/08 a la demande) et n'apportait rien - les quatre lectures
+#   directes se lisent cote a cote dans une liste triee, la convention de
+#   suffixe est faite pour ca. Une entite calculee de plus, c'est une entite
+#   de plus a maintenir et une orpheline de plus le jour ou on la retire.
+#
+# LE PIEGE skip_updates - rappel de l'en-tete de growatt.yaml
+#   skip_updates est une propriete de la PLAGE Modbus, pas de l'entite.
+#   ESPHome regroupe les registres voisins en une seule commande, et un item
+#   porteur de skip_updates affamerait alors TOUS ses voisins de plage.
+#   D'ou force_new_range: true sur chacun des quatre capteurs ci-dessous.
+#   C'est exactement ce qui avait gele les selects et les numbers le 22/08.
+#
+# CADENCE : une version de firmware ne change pas toute seule. skip_updates
+#   a 200 fait une relecture toutes les 100 minutes - largement assez pour
+#   voir l'effet d'une mise a jour, et cela retire huit trames par cycle du
+#   budget de scrutation. La premiere lecture, elle, tombe des le demarrage :
+#   les quatre valeurs etaient la 15 secondes apres le reboot.
+# =============================================================================
+
+text_sensor:
+
+  # --- Onduleur 1, adresse Modbus 1, serie KHM8F3X0XD -----------------------
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Firmware Ond1"
+    id: fw_principal_ond1
+    register_type: holding
+    address: 9
+    register_count: 3
+    response_size: 6
+    raw_encode: ANSI
+    skip_updates: 200
+    force_new_range: true
+    icon: mdi:chip
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Firmware DSP Ond1"
+    id: fw_dsp_ond1
+    register_type: holding
+    address: 12
+    register_count: 3
+    response_size: 6
+    raw_encode: ANSI
+    skip_updates: 200
+    force_new_range: true
+    icon: mdi:chip
+    entity_category: diagnostic
+
+  # --- Onduleur 2, adresse Modbus 2, serie UYN8G3V04A -----------------------
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Firmware Ond2"
+    id: fw_principal_ond2
+    register_type: holding
+    address: 9
+    register_count: 3
+    response_size: 6
+    raw_encode: ANSI
+    skip_updates: 200
+    force_new_range: true
+    icon: mdi:chip
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Firmware DSP Ond2"
+    id: fw_dsp_ond2
+    register_type: holding
+    address: 12
+    register_count: 3
+    response_size: 6
+    raw_encode: ANSI
+    skip_updates: 200
+    force_new_range: true
+    icon: mdi:chip
+    entity_category: diagnostic

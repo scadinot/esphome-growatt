@@ -1,0 +1,227 @@
+# =============================================================================
+# LES DEUX HORLOGES - lecture et ecart
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+# La mise a l'heure est dans packages/gw-horloge-set.yaml.
+#
+# POURQUOI CA COMPTE : les fenetres horaires (registres 3 a 6) se propagent
+#   aux deux onduleurs, mais chacun les evalue contre SA PROPRE horloge. Deux
+#   RTC decalees font demarrer la meme fenetre a deux moments reels
+#   differents.
+#
+# EPISODE DU 23/08/2026, a la mise en service de ces entites :
+#   Ond1 = 10:16:23, Ond2 = 09:16:23, ecart 3600 s PILE. Meme date, meme
+#   minute, memes secondes - pas une derive de quartz mais une heure entiere :
+#   l'onduleur 2 etait reste a l'HEURE D'HIVER. Ces SPF n'ont aucune gestion
+#   automatique de l'heure d'ete, leur horloge est une valeur posee a la main.
+#   Les fenetres du n2 se declenchaient donc une heure trop tard.
+#   Corrige le jour meme avec les boutons de gw-horloge-set.yaml.
+#
+# =============================================================================
+# LIRE L'ECART CORRECTEMENT - mesure le 23/08/2026
+# -----------------------------------------------------------------------------
+# LA LIGNE DE BASE N'EST PAS ZERO, ELLE EST D'ENVIRON -14 s.
+#
+#   Les deux adresses ne sont pas interrogees au meme instant du cycle Modbus.
+#   L'horloge du n1 est echantillonnee une quinzaine de secondes AVANT celle
+#   du n2, d'ou un ecart negatif permanent.
+#
+#   VERIFIE : apres avoir recale les DEUX horloges sur le SNTP a quelques
+#   minutes d'intervalle, l'ecart est reste a -16, puis -14, puis -13 s. Il
+#   varie de une a deux secondes d'un releve a l'autre - c'est la signature
+#   meme du jitter d'echantillonnage. Une vraie difference entre horloges
+#   serait stable.
+#
+# CE QU'IL FAUT SURVEILLER : l'ecart a cette ligne de base, pas la valeur
+#   absolue. Et le seul mode de defaillance realiste est +/- 3600 s. Une
+#   derive de quartz entre deux onduleurs mettrait des mois a atteindre la
+#   minute ; un decalage d'heure d'ete apparait d'un coup.
+#
+# A SURVEILLER DEUX FOIS PAR AN, fin mars et fin octobre.
+#
+# NE COMPARE QUE LES HEURES, pas les dates : un decalage de date ne s'y
+#   verrait pas. Comparer alors les deux libelles RTC en clair.
+# =============================================================================
+
+sensor:
+
+  # --- Onduleur 1, holding 45-50 --------------------------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} RTC Year Ond1"
+    id: rtc_year
+    internal: true
+    register_type: holding
+    address: 45
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} RTC Month Ond1"
+    id: rtc_month
+    internal: true
+    register_type: holding
+    address: 46
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} RTC Day Ond1"
+    id: rtc_day
+    internal: true
+    register_type: holding
+    address: 47
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} RTC Hour Ond1"
+    id: rtc_hour
+    internal: true
+    register_type: holding
+    address: 48
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} RTC Minute Ond1"
+    id: rtc_minute
+    internal: true
+    register_type: holding
+    address: 49
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} RTC Second Ond1"
+    id: rtc_second
+    internal: true
+    register_type: holding
+    address: 50
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  # --- Onduleur 2, holding 45-50 --------------------------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} RTC Year Ond2"
+    id: rtc_year_2
+    internal: true
+    register_type: holding
+    address: 45
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} RTC Month Ond2"
+    id: rtc_month_2
+    internal: true
+    register_type: holding
+    address: 46
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} RTC Day Ond2"
+    id: rtc_day_2
+    internal: true
+    register_type: holding
+    address: 47
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} RTC Hour Ond2"
+    id: rtc_hour_2
+    internal: true
+    register_type: holding
+    address: 48
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} RTC Minute Ond2"
+    id: rtc_minute_2
+    internal: true
+    register_type: holding
+    address: 49
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} RTC Second Ond2"
+    id: rtc_second_2
+    internal: true
+    register_type: holding
+    address: 50
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  # Ecart entre les deux horloges. LIGNE DE BASE : environ -14 s, ce n'est pas
+  # zero - voir l'encadre en tete de fichier.
+  - platform: template
+    name: "${upper_devicename} RTC Ecart Ond1-Ond2"
+    unit_of_measurement: "s"
+    accuracy_decimals: 0
+    icon: mdi:clock-alert-outline
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(rtc_hour).state)   || isnan(id(rtc_minute).state)   || isnan(id(rtc_second).state) ||
+          isnan(id(rtc_hour_2).state) || isnan(id(rtc_minute_2).state) || isnan(id(rtc_second_2).state)) {
+        return NAN;
+      }
+      int t1 = (int) id(rtc_hour).state   * 3600 + (int) id(rtc_minute).state   * 60 + (int) id(rtc_second).state;
+      int t2 = (int) id(rtc_hour_2).state * 3600 + (int) id(rtc_minute_2).state * 60 + (int) id(rtc_second_2).state;
+      int d = t1 - t2;
+      if (d >  43200) d -= 86400;   // repliement autour de minuit
+      if (d < -43200) d += 86400;
+      return d;
+    update_interval: 30s
+
+text_sensor:
+
+  - platform: template
+    name: "${upper_devicename} RTC Ond1"
+    icon: mdi:clock-outline
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(rtc_year).state) || isnan(id(rtc_month).state) || isnan(id(rtc_day).state) ||
+          isnan(id(rtc_hour).state) || isnan(id(rtc_minute).state) || isnan(id(rtc_second).state)) {
+        return {};
+      }
+      int year = (int) id(rtc_year).state;
+      if (year < 100) year += 2000;   // le registre peut renvoyer 26 ou 2026
+      char buf[80];   // large : un registre aberrant peut sortir jusqu'a 72 car.
+      snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
+               year, (int) id(rtc_month).state, (int) id(rtc_day).state,
+               (int) id(rtc_hour).state, (int) id(rtc_minute).state, (int) id(rtc_second).state);
+      return {std::string(buf)};
+    update_interval: 30s
+
+  - platform: template
+    name: "${upper_devicename} RTC Ond2"
+    icon: mdi:clock-outline
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(rtc_year_2).state) || isnan(id(rtc_month_2).state) || isnan(id(rtc_day_2).state) ||
+          isnan(id(rtc_hour_2).state) || isnan(id(rtc_minute_2).state) || isnan(id(rtc_second_2).state)) {
+        return {};
+      }
+      int year = (int) id(rtc_year_2).state;
+      if (year < 100) year += 2000;
+      char buf[80];
+      snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
+               year, (int) id(rtc_month_2).state, (int) id(rtc_day_2).state,
+               (int) id(rtc_hour_2).state, (int) id(rtc_minute_2).state, (int) id(rtc_second_2).state);
+      return {std::string(buf)};
+    update_interval: 30s

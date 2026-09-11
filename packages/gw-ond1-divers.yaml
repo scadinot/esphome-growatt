@@ -1,0 +1,40 @@
+# =============================================================================
+# Onduleur 1 - RELEVES DE CONFIGURATION en lecture seule
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul.
+#
+# Valeurs de configuration lues mais NON pilotables, soit parce que
+# l'onduleur les refuse, soit parce qu'on ne veut pas les exposer a
+# l'ecriture. A ne pas confondre avec gw-ond1-reglages.yaml, qui ecrit.
+# =============================================================================
+
+sensor:
+
+  # ---------------------------------------------------------------------------
+  # Prog 02 - courant de charge maximal, holding 34, echelle 1 A.
+  #
+  # CORRECTION DU 24/08/2026 : l'ancienne note affirmait que ce registre valait
+  #   400 sans correspondre aux 100 A du LCD, et l'entite avait ete retiree
+  #   comme trompeuse. Le balayage montre H34 = 100, soit EXACTEMENT la valeur
+  #   de l'ecran. Le mappage etait bon et l'echelle est bien 1 A - c'est le
+  #   releve d'origine, fait a l'epoque du D1 Mini, qui etait faux.
+  #
+  # RESTE EN LECTURE SEULE : le manuel est formel, "When the battery type set
+  #   as LI, the Maximum charge current can't be modified by the user". En
+  #   faire un number donnerait un curseur qui ne sert a rien.
+  #
+  # Ce n'est PAS le meme reglage que AC1 (Prog 11, holding 38) : celui-ci
+  #   plafonne le courant total accepte par l'onduleur, AC1 ne concerne que
+  #   l'apport depuis le reseau.
+  # ---------------------------------------------------------------------------
+  - platform: modbus_controller
+    modbus_controller_id: growatt
+    name: "${upper_devicename} Max Charge Current Ond1"
+    register_type: holding
+    address: 34
+    value_type: U_WORD
+    unit_of_measurement: "A"
+    device_class: current
+    accuracy_decimals: 0
+    icon: mdi:current-dc
+    entity_category: diagnostic
