@@ -256,6 +256,16 @@ modbus:
   id: modbus_growatt
   uart_id: uart_growatt
   send_wait_time: 200ms
+  # ESPACEMENT DES TRAMES - 12/09/2026. Jusqu'a 2026.7.4 il etait regle par
+  # command_throttle: 100ms sur chaque controleur. Depuis 2026.8.2 cette cle
+  # n'a PLUS AUCUN EFFET et l'espacement vient d'ici, 600 ms par defaut : le
+  # cycle normal (~36 trames) serait passe de ~9 s a ~27 s, et le cycle de
+  # rafale des skip_updates (toutes les 10 min 30, ~69 trames) bien au-dela
+  # des 30 s d'intervalle - saturation permanente. 100 ms reproduit le
+  # comportement observe depuis le 22/08. Le document Growatt demande 850 ms
+  # entre commandes ; les deux onduleurs acceptent 100 ms sans une erreur
+  # dans les captures de logs. Hors specification, en connaissance de cause.
+  turnaround_time: 100ms
 
 modbus_controller:
   - id: growatt
@@ -263,14 +273,12 @@ modbus_controller:
     modbus_id: modbus_growatt
     setup_priority: -10
     update_interval: 30s
-    command_throttle: 100ms   # standard Modbus RTU
 
   - id: growatt2
     address: 0x02
     modbus_id: modbus_growatt
     setup_priority: -10
     update_interval: 30s
-    command_throttle: 100ms
 
 sensor:
   - platform: wifi_signal

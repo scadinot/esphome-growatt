@@ -54,6 +54,14 @@
 #   H45-H50 .......... horloge, EXCLUE du diff : les deux RTC derivent.
 #
 # TOUT LE RESTE QUI SORT EST A EXAMINER.
+#
+# PORTE SUR ESPHOME 2026.8.2 le 12/09/2026 : le composant modbus_controller a
+#   ete reecrit. Le handler de create_read_command recoit desormais un
+#   std::span<const uint8_t> et non plus un std::vector, et l'enumeration
+#   ModbusRegisterType est devenue modbus::EntityType (l'ancien nom est
+#   deprecie, retire en 2027.2.0). Sans cette retouche, la compilation
+#   echouait ici et bloquait tout flash du fichier growatt.yaml. Le
+#   comportement du scan n'a pas change - ni son echec cote Ond2.
 # =============================================================================
 
 globals:
@@ -96,9 +104,9 @@ script:
           for (int b = 0; b < 100; b += 10) {
             c->queue_command(
               esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus_controller::ModbusRegisterType::HOLDING, b, 10,
-                [](esphome::modbus_controller::ModbusRegisterType, uint16_t start,
-                   const std::vector<uint8_t> &data) {
+                c, esphome::modbus::EntityType::HOLDING, b, 10,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
                   for (int i = 0; i < 10; i++) {
                     size_t p = i * 2;
                     if (p + 1 >= data.size()) break;
@@ -117,9 +125,9 @@ script:
           for (int b = 0; b < 100; b += 10) {
             c->queue_command(
               esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus_controller::ModbusRegisterType::HOLDING, b, 10,
-                [](esphome::modbus_controller::ModbusRegisterType, uint16_t start,
-                   const std::vector<uint8_t> &data) {
+                c, esphome::modbus::EntityType::HOLDING, b, 10,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
                   char buf[32];
                   for (int i = 0; i < 10; i++) {
                     size_t p = i * 2;

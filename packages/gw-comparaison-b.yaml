@@ -19,8 +19,18 @@
 #   touche sur l'ecran reste invisible. C'est mieux qu'avant, ce n'est pas
 #   une preuve d'identite complete entre les deux machines.
 #
-# H3-H6 : l'ORDRE est deduit des entites number d'Ond1 (charge start, charge
-#   end, out start, out end). NON VERIFIE par aller-retour LCD.
+# H3-H6 : ORDRE CORRIGE le 12/09/2026. La premiere version l'avait "deduit"
+#   des entites number d'Ond1 en les lisant a l'envers : H3 etait libelle
+#   Charge Start, H5 Out Start. Le document Growatt (docs/) et les numbers
+#   d'Ond1 concordent : H3 UtiOutStart, H4 UtiOutEnd, H5 UtiChargeStart,
+#   H6 UtiChargeEnd. Les NOMS sont conserves, ce sont les adresses qui ont
+#   ete echangees - aucune entite HA renommee. Invisible jusque-la : les
+#   quatre valaient 0 et 23 des deux cotes.
+#
+# H39, H8, H20 cote Ond1 RETIRES le 12/09/2026 : deja lus par les selects de
+#   gw-ond1-reglages.yaml, et ce doublon les privait de toute valeur - voir
+#   l'incident n.2 en tete de gw-comparaison.yaml. Ne restent ici que des
+#   registres Ond2, plus H94 qu'aucune entite Ond1 ne lit.
 # =============================================================================
 
 sensor:
@@ -28,18 +38,7 @@ sensor:
   # === Type de batterie - LE PLUS IMPORTANT DE CE FICHIER ==================
   # Un onduleur en LI et l'autre en USE chargeraient la meme batterie selon
   # deux lois differentes. A verifier en priorite.
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt
-    name: "${upper_devicename} Code type batterie Ond1"
-    register_type: holding
-    address: 39
-    value_type: U_WORD
-    accuracy_decimals: 0
-    skip_updates: 20
-    force_new_range: true
-    icon: mdi:battery-unknown
-    entity_category: diagnostic
+  # Cote Ond1 : select "Battery Type Setting Ond1" (gw-ond1-reglages).
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
@@ -56,17 +55,7 @@ sensor:
   # === Mode d'entree AC - plage de tension reseau acceptee =================
   # Determine qui accepte ou rejette le reseau. Deux modes differents et les
   # deux onduleurs ne basculeraient pas au meme moment.
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt
-    name: "${upper_devicename} Code mode entree AC Ond1"
-    register_type: holding
-    address: 8
-    value_type: U_WORD
-    accuracy_decimals: 0
-    skip_updates: 20
-    force_new_range: true
-    entity_category: diagnostic
+  # Cote Ond1 : select "AC Input Mode Setting Ond1".
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
@@ -108,17 +97,7 @@ sensor:
     entity_category: diagnostic
 
   # === Comportement en surcharge ===========================================
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt
-    name: "${upper_devicename} Code surcharge Ond1"
-    register_type: holding
-    address: 20
-    value_type: U_WORD
-    accuracy_decimals: 0
-    skip_updates: 20
-    force_new_range: true
-    entity_category: diagnostic
+  # Cote Ond1 : select "Overload Restart Mode Ond1".
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
@@ -132,35 +111,12 @@ sensor:
     entity_category: diagnostic
 
   # === Recopies Ond2 des fenetres horaires et du buzzer ====================
-  # Ond1 a deja ses entites number et switch.
+  # Ond1 a deja ses entites number et switch. Ordre du document Growatt :
+  # H3 Out Start, H4 Out End, H5 Charge Start, H6 Charge End.
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
     name: "${upper_devicename} Utility Charge Start Hour Setting Ond2"
-    register_type: holding
-    address: 3
-    value_type: U_WORD
-    unit_of_measurement: "h"
-    accuracy_decimals: 0
-    skip_updates: 20
-    force_new_range: true
-    entity_category: diagnostic
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt2
-    name: "${upper_devicename} Utility Charge End Hour Setting Ond2"
-    register_type: holding
-    address: 4
-    value_type: U_WORD
-    unit_of_measurement: "h"
-    accuracy_decimals: 0
-    skip_updates: 20
-    force_new_range: true
-    entity_category: diagnostic
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt2
-    name: "${upper_devicename} Utility Out Start Hour Setting Ond2"
     register_type: holding
     address: 5
     value_type: U_WORD
@@ -172,9 +128,33 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Utility Out End Hour Setting Ond2"
+    name: "${upper_devicename} Utility Charge End Hour Setting Ond2"
     register_type: holding
     address: 6
+    value_type: U_WORD
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Utility Out Start Hour Setting Ond2"
+    register_type: holding
+    address: 3
+    value_type: U_WORD
+    unit_of_measurement: "h"
+    accuracy_decimals: 0
+    skip_updates: 20
+    force_new_range: true
+    entity_category: diagnostic
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Utility Out End Hour Setting Ond2"
+    register_type: holding
+    address: 4
     value_type: U_WORD
     unit_of_measurement: "h"
     accuracy_decimals: 0

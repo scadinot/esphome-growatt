@@ -36,6 +36,36 @@
 #
 # D'ou l'absence de H1 et H2 cote Ond1 dans ce fichier : ils sont lus par
 # select.<...>_output_priority_ond1 et select.<...>_charge_priority_ond1.
+#
+# =============================================================================
+# INCIDENT N.2 - 12/09/2026 : LA REGLE CI-DESSUS ETAIT VIOLEE SEPT FOIS
+# ---------------------------------------------------------------------------
+# Ce fichier et gw-comparaison-b.yaml exposaient encore, cote Ond1, H18, H19,
+# H35, H36 (ici) et H8, H20, H39 (complement) - sept registres qu'Ond1 lisait
+# DEJA par ses selects et numbers de gw-ond1-reglages.yaml. Ecrits le meme
+# jour que la regle, quelques lignes en dessous.
+#
+# CONSEQUENCE, invisible pendant quinze jours : les selects AC Input Mode,
+# Output Voltage, Output Frequency et Overload Restart d'Ond1 N'ONT JAMAIS
+# RECU DE VALEUR. Le flux /events de l'ESP les montrait a vide le 12/09,
+# alors que Battery Type, Bulk et Float, dupliques eux aussi, avaient la leur.
+#
+# LE MECANISME, lu dans le code du composant (2026.7.4) : les entites en
+# force_new_range sont triees EN TETE et ouvrent chacune leur plage. Les
+# selects, parcourus ensuite, forment les leurs : (18,3) et (8,1). A la
+# reception, le composant cherche LA PREMIERE plage ayant le meme type et la
+# meme adresse de depart - toujours celle du doublon. La reponse au poll des
+# selects lui etait livree ; les selects ne recevaient rien. Battery Type,
+# Bulk et Float survivaient parce que leur plage demarre en H34, le capteur
+# Max Charge Current de gw-ond1-divers.yaml, adresse que personne ne
+# dupliquait. De la chance, pas de la conception.
+#
+# Personne n'a rien vu : les quatre selects sont disabled_by_default.
+#
+# REGLE, cette fois appliquee : ce fichier et son complement ne contiennent
+# QUE des registres Ond2, ou des registres qu'AUCUNE entite Ond1 ne lit
+# (H94 est le seul). Pour comparer, le tableau de bord met le select ou le
+# number Ond1 en face du capteur Ond2.
 # =============================================================================
 #
 # LA PISTE H18, FERMEE
@@ -54,18 +84,7 @@
 sensor:
 
   # === H18 - CONSIGNE DE TENSION DE SORTIE =================================
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt
-    name: "${upper_devicename} Consigne tension sortie Ond1"
-    register_type: holding
-    address: 18
-    value_type: U_WORD
-    accuracy_decimals: 0
-    skip_updates: 20
-    force_new_range: true
-    icon: mdi:sine-wave
-    entity_category: diagnostic
+  # Cote Ond1 : select "Output Voltage Setting Ond1" (gw-ond1-reglages).
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
@@ -80,18 +99,7 @@ sensor:
     entity_category: diagnostic
 
   # === H19 - CONSIGNE DE FREQUENCE =========================================
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt
-    name: "${upper_devicename} Consigne frequence Ond1"
-    register_type: holding
-    address: 19
-    value_type: U_WORD
-    accuracy_decimals: 0
-    skip_updates: 20
-    force_new_range: true
-    icon: mdi:sine-wave
-    entity_category: diagnostic
+  # Cote Ond1 : select "Output Frequency Setting Ond1".
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
@@ -109,38 +117,13 @@ sensor:
   # Doivent concorder entre deux onduleurs sur une meme batterie : deux
   # consignes d'absorption differentes, et l'un surcharge pendant que
   # l'autre croit avoir fini.
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt
-    name: "${upper_devicename} Tension absorption Ond1"
-    register_type: holding
-    address: 35
-    value_type: U_WORD
-    unit_of_measurement: "V"
-    accuracy_decimals: 1
-    filters: [multiply: 0.1]
-    skip_updates: 20
-    force_new_range: true
-    entity_category: diagnostic
+  # Cote Ond1 : numbers "Bulk / Float Charge Voltage Setting Ond1".
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
     name: "${upper_devicename} Tension absorption Ond2"
     register_type: holding
     address: 35
-    value_type: U_WORD
-    unit_of_measurement: "V"
-    accuracy_decimals: 1
-    filters: [multiply: 0.1]
-    skip_updates: 20
-    force_new_range: true
-    entity_category: diagnostic
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt
-    name: "${upper_devicename} Tension floating Ond1"
-    register_type: holding
-    address: 36
     value_type: U_WORD
     unit_of_measurement: "V"
     accuracy_decimals: 1
