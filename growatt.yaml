@@ -23,7 +23,8 @@
 #   packages/gw-firmware.yaml ...... versions firmware des deux onduleurs
 #   packages/gw-comparaison.yaml ... reglages compares Ond1 / Ond2
 #   packages/gw-comparaison-b.yaml . complement : H39 H8 H94 H20 H3-H6 H22
-#   packages/gw-scan-diff.yaml ..... balayage H0-H99 et diff des deux
+#   packages/gw-scan-diff.yaml ..... balayage H0-H98 et diff des deux
+#   packages/gw-scan-ond2.yaml ..... test de lecture par blocs, NON inclus
 #   packages/gw-bms-can.yaml ....... donnees BMS par CAN : compte rendu, VIDE
 #   packages/gw-scan-input.yaml .... balayage input 90-3299, NON inclus
 # =============================================================================
@@ -47,12 +48,12 @@
 # CARTOGRAPHIE DES HOLDING REGISTERS, etablie par aller-retour LCD
 #   ATTENTION : cette carte ne contient que ce que quelqu'un a pense a
 #   toucher sur l'ecran. Elle n'est PAS garantie exhaustive. Le balayage
-#   integral (gw-scan-diff.yaml) devait lever ce doute : il lit 100/100
-#   registres cote Ond1 et ZERO cote Ond2, en blocs de 20 comme de 10, alors
-#   qu'Ond2 repond parfaitement aux lectures ciblees. Cause inconnue.
-#   La comparaison passe donc par des entites declarees, paquets
-#   gw-comparaison.yaml et gw-comparaison-b.yaml, qui couvrent toute la
-#   carte ci-dessous - mais rien de ce qu'elle ignore.
+#   integral (gw-scan-diff.yaml) a lu 100/100 registres cote Ond1 et ZERO
+#   cote Ond2 du 28/08 au 13/09 : la cause etait la methode (dix blocs
+#   empiles, file videe a la premiere non-reponse), pas Ond2 - resolu le
+#   13/09/2026, voir l'en-tete de gw-scan-diff.yaml. Il lit maintenant les
+#   deux machines en entier. Les entites de comparaison (gw-comparaison et
+#   -b) restent le suivi permanent ; le scan est le controle exhaustif.
 #
 #   H1 Output Priority | H2 Charge Priority | H3-H6 fenetres horaires
 #   H8 AC Input Mode | H18 Output Voltage | H19 Output Freq | H20 Overload
@@ -82,9 +83,8 @@
 #   MIROIR EN INPUT - balayage du 12/09/2026 : les input registers 108 a
 #   ~210 recopient les holding 0 a ~102 (input = holding + 108) : firmware
 #   en 117-122, serie en 131-135, H34-H39 en 142-147, horloge en 153-158,
-#   H82 en 190. Detail dans packages/gw-bms-can.yaml. Piste pour le scan
-#   comparatif d'Ond2, qui refuse les blocs en holding : jamais essaye en
-#   input.
+#   H82 en 190. Detail dans packages/gw-bms-can.yaml. Sur Ond2 le decalage
+#   est 113 et non 108 (test du 13/09) : un firmware, un decalage.
 # =============================================================================
 # MATERIEL : Waveshare ESP32-S3-ETH + PoE Module (B)
 # -----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 # =============================================================================
-# BALAYAGE COMPARATIF DES DEUX ONDULEURS - H0 a H99
+# BALAYAGE COMPARATIF DES DEUX ONDULEURS - H0 a H98
 # =============================================================================
 # PAQUET inclus par growatt.yaml. Ne se compile pas seul.
 #
@@ -24,21 +24,40 @@
 #      n'est pas une comparaison negative, c'est une absence de comparaison.
 #      Corrige : les deux compteurs sont testes.
 #
-# POURQUOI DES BLOCS DE 10 ET NON DE 20
-#   Ond1 rendait ses 100 registres par blocs de 20. Ond2 n'en rendait AUCUN
-#   dans les memes conditions, alors qu'il repond parfaitement aux lectures
-#   courtes (firmware, serie, tous les reglages de gw-comparaison.yaml
-#   viennent de lui). Hypothese : sa limite de taille de bloc est plus
-#   basse - ce qui serait coherent avec un firmware different (100.08/101.07
-#   contre 100.06/101.05). Blocs de 10 pour rester sous la limite des deux.
+# =============================================================================
+# POURQUOI OND2 LISAIT ZERO - resolu le 13/09/2026
+# ---------------------------------------------------------------------------
+# Du 28/08 au 13/09 ce fichier lisait 100/100 cote Ond1 et 0/100 cote Ond2,
+# en blocs de 20 comme de 10, et l'en-tete incriminait le firmware d'Ond2.
 #
+# LE TEST QUI A TRANCHE (gw-scan-ond2.yaml, 13/09/2026 00:37) : neuf
+#   lectures sur Ond2, UNE PAR UNE, espacees de 6 s - blocs de 9, 10, 20 et
+#   45 mots, un bloc a cheval sur 45, deux blocs de 45 en input. NEUF
+#   REPONSES SUR NEUF, tailles exactes, valeurs justes. Ond2 accepte tout,
+#   y compris ce que le document interdit.
+#
+# LA CAUSE ETAIT LA METHODE : les dix blocs etaient EMPILES d'un coup dans
+#   la file du controleur, derriere sa scrutation courante. Une lecture
+#   sans reponse - une seule - passe le controleur hors ligne apres ses
+#   relances et VIDE SA FILE : les neuf autres blocs partaient a la
+#   poubelle, sans une ligne de log au niveau WARN. Ond1, interroge en
+#   premier et sur une file vide, n'y etait jamais expose. Le mecanisme est
+#   dans le composant (set_online(false) -> clear_tx_queue_for_address) ;
+#   il ne fait pas de difference entre 2026.7.4 et 2026.8.2.
+#
+# LA REPONSE : UNE LECTURE A LA FOIS. Trois blocs par onduleur, ALIGNES SUR
+#   45 comme le document le demande (0-44, 45-89, 90-98), chacun attendu
+#   3 s avant le suivant. Six trames au lieu de vingt, et plus rien
+#   d'empile. Le document limite une lecture a 45 mots : 90-98 fait 9.
+#
+# =============================================================================
 # COMMENT S'EN SERVIR
-#   Appuyer sur "Scan comparatif Ond1-Ond2", attendre 45 s, puis lire :
-#     Scan registres Ond1 ... doit valoir 100
-#     Scan registres Ond2 ... doit valoir 100
+#   Appuyer sur "Scan comparatif Ond1-Ond2", attendre 25 s, puis lire :
+#     Scan registres Ond1 ... doit valoir 99
+#     Scan registres Ond2 ... doit valoir 99
 #     Scan ecarts .......... nombre de registres differents
 #     Scan detail .......... la liste, format H<reg>:<Ond1>/<Ond2>
-#   LIRE LES DEUX COMPTEURS D'ABORD. Si l'un n'est pas a 100, le reste est
+#   LIRE LES DEUX COMPTEURS D'ABORD. Si l'un n'est pas a 99, le reste est
 #   nul et non avenu.
 #
 # TEMOINS DE BON FONCTIONNEMENT
@@ -49,19 +68,27 @@
 #   H9-H14, H23-H27 ... firmware et serie, cf. ci-dessus.
 #   H34 .............. courant de charge max : valeur DYNAMIQUE imposee par
 #                      le BMS en mode lithium. A affiche 100, 280 puis 400
-#                      cote Ond1 selon les jours, 55 cote Ond2 qui n'a pas de
-#                      lien BMS complet. Ce n'est pas une consigne.
+#                      cote Ond1 selon les jours, 55 cote Ond2 - et 0 sur
+#                      les deux batterie pleine. Ce n'est pas une consigne.
 #   H45-H50 .......... horloge, EXCLUE du diff : les deux RTC derivent.
+#   H80 .............. "Factory - The ODM Info code" du document : 13201
+#                      cote Ond1, 13202 cote Ond2. Un code d'usine, pas un
+#                      reglage.
 #
 # TOUT LE RESTE QUI SORT EST A EXAMINER.
 #
-# PORTE SUR ESPHOME 2026.8.2 le 12/09/2026 : le composant modbus_controller a
-#   ete reecrit. Le handler de create_read_command recoit desormais un
-#   std::span<const uint8_t> et non plus un std::vector, et l'enumeration
-#   ModbusRegisterType est devenue modbus::EntityType (l'ancien nom est
-#   deprecie, retire en 2027.2.0). Sans cette retouche, la compilation
-#   echouait ici et bloquait tout flash du fichier growatt.yaml. Le
-#   comportement du scan n'a pas change - ni son echec cote Ond2.
+# PREMIER BALAYAGE COMPLET - 13/09/2026 a 00:47
+#   Ond1 = 99, Ond2 = 99, HUIT ecarts, tous attendus : H11, H14 (firmware),
+#   H23 a H27 (serie), H80 (code usine). H34 valait 0 des deux cotes,
+#   batterie pleine. AUCUN REGLAGE NE DIFFERE entre les deux onduleurs sur
+#   les 99 registres - la reponse que l'audit du 28/08 cherchait, et que
+#   les entites de comparaison ne pouvaient donner que sur la carte connue.
+#   L'ecart de 2,1 V entre les sorties decouplees n'a donc aucun reglage
+#   pour cause : il ne reste que le DSP (101.05 contre 101.07).
+#
+# PORTE SUR ESPHOME 2026.8.2 le 12/09/2026 : handler en std::span,
+#   enumeration modbus::EntityType. Reecrit le 13/09/2026 pour la lecture
+#   une par une - la structure a compteurs et entites est inchangee.
 # =============================================================================
 
 globals:
@@ -90,6 +117,60 @@ globals:
 
 script:
 
+  # Un bloc Ond1 : range ses mots dans scan_ond1 et compte.
+  - id: scan_bloc_ond1
+    mode: queued
+    parameters:
+      debut: int
+      nombre: int
+    then:
+      - lambda: |-
+          auto *c = id(growatt);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, debut, nombre,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                for (size_t i = 0; i * 2 + 1 < data.size(); i++) {
+                  int reg = start + i;
+                  if (reg >= 100) break;
+                  id(scan_ond1)[reg] = (data[i * 2] << 8) | data[i * 2 + 1];
+                  id(scan_n1)++;
+                }
+              }));
+
+  # Un bloc Ond2 : compare chaque mot a scan_ond1, compte et liste.
+  - id: scan_bloc_ond2
+    mode: queued
+    parameters:
+      debut: int
+      nombre: int
+    then:
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, debut, nombre,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[32];
+                for (size_t i = 0; i * 2 + 1 < data.size(); i++) {
+                  int reg = start + i;
+                  if (reg >= 100) break;
+                  id(scan_n2)++;
+                  if (reg >= 45 && reg <= 50) continue;
+                  uint16_t v1 = id(scan_ond1)[reg];
+                  if (v1 == 0xFFFF) continue;
+                  uint16_t v2 = (data[i * 2] << 8) | data[i * 2 + 1];
+                  if (v1 != v2) {
+                    id(scan_ndiff)++;
+                    ESP_LOGW("diff", "H%d : Ond1=%u  Ond2=%u", reg, v1, v2);
+                    snprintf(buf, sizeof(buf), "H%d:%u/%u ", reg, v1, v2);
+                    id(scan_txt) += buf;
+                  }
+                }
+              }));
+
   - id: scan_comparatif
     mode: single
     then:
@@ -100,56 +181,22 @@ script:
           id(scan_ndiff) = 0;
           id(scan_txt) = "";
           id(scan_detail).publish_state("Scan en cours...");
-          auto *c = id(growatt);
-          for (int b = 0; b < 100; b += 10) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::HOLDING, b, 10,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  for (int i = 0; i < 10; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    int reg = start + i;
-                    if (reg >= 100) break;
-                    id(scan_ond1)[reg] = (data[p] << 8) | data[p + 1];
-                    id(scan_n1)++;
-                  }
-                }));
-          }
 
-      - delay: 20s
+      # Ond1, trois blocs alignes sur 45, un a la fois.
+      - script.execute: { id: scan_bloc_ond1, debut: 0,  nombre: 45 }
+      - delay: 3s
+      - script.execute: { id: scan_bloc_ond1, debut: 45, nombre: 45 }
+      - delay: 3s
+      - script.execute: { id: scan_bloc_ond1, debut: 90, nombre: 9 }
+      - delay: 3s
 
-      - lambda: |-
-          auto *c = id(growatt2);
-          for (int b = 0; b < 100; b += 10) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::HOLDING, b, 10,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[32];
-                  for (int i = 0; i < 10; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    int reg = start + i;
-                    if (reg >= 100) break;
-                    id(scan_n2)++;
-                    if (reg >= 45 && reg <= 50) continue;
-                    uint16_t v1 = id(scan_ond1)[reg];
-                    if (v1 == 0xFFFF) continue;
-                    uint16_t v2 = (data[p] << 8) | data[p + 1];
-                    if (v1 != v2) {
-                      id(scan_ndiff)++;
-                      ESP_LOGW("diff", "H%d : Ond1=%u  Ond2=%u", reg, v1, v2);
-                      snprintf(buf, sizeof(buf), "H%d:%u/%u ", reg, v1, v2);
-                      id(scan_txt) += buf;
-                    }
-                  }
-                }));
-          }
-
-      - delay: 20s
+      # Ond2, memes blocs, compares au vol.
+      - script.execute: { id: scan_bloc_ond2, debut: 0,  nombre: 45 }
+      - delay: 3s
+      - script.execute: { id: scan_bloc_ond2, debut: 45, nombre: 45 }
+      - delay: 3s
+      - script.execute: { id: scan_bloc_ond2, debut: 90, nombre: 9 }
+      - delay: 3s
 
       - lambda: |-
           id(scan_r1).publish_state(id(scan_n1));
@@ -165,6 +212,8 @@ script:
             t = "ECHEC : Ond1 n'a pas repondu, rien compare";
           else if (id(scan_n2) == 0)
             t = "ECHEC : Ond2 n'a pas repondu, rien compare";
+          else if (id(scan_n1) < 99 || id(scan_n2) < 99)
+            t = "INCOMPLET : " + to_string(id(scan_n1)) + "/" + to_string(id(scan_n2)) + " registres - " + id(scan_txt);
           else if (id(scan_txt).empty())
             t = "Aucun ecart sur les registres lus des deux cotes";
           else

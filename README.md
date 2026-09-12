@@ -120,6 +120,20 @@ L'onduleur ne laisse voir du CAN que le SOC (input 18), la limite de courant
 (H34) et la tension de charge (H35/H36 = 57,0 V). Compte rendu dans
 `gw-bms-can.yaml`, outil de balayage conservé dans `gw-scan-input.yaml`.
 
+13/09, point 7 : le scan comparatif lisait 0/100 côté Ond2 depuis le 28/08.
+Un test de neuf lectures une par une (`gw-scan-ond2.yaml`) a montré qu'Ond2
+accepte tous les blocs, y compris ceux que le document interdit ; la cause
+était l'empilement de dix blocs dans la file, vidée à la première
+non-réponse. `gw-scan-diff.yaml` lit désormais trois blocs alignés sur 45
+par onduleur, un à la fois, et compare les deux machines en entier.
+
+**Premier balayage complet, 00:47 : 99/99 et 99/99, huit écarts, tous
+attendus** — firmware (H11, H14), série (H23-H27), code usine (H80).
+**Aucun réglage ne diffère entre les deux onduleurs.** L'écart de 2,1 V entre
+les sorties découplées n'a donc aucun réglage pour cause ; il ne reste que le
+DSP (101.05 contre 101.07). Au passage, le miroir input/holding d'Ond2 est
+décalé de 113 et non de 108 : un firmware, un décalage.
+
 Reste à corriger : `gw-firmware.yaml` affirme en tête que l'outil de lecture
 ne sait pas descendre dans `packages/`. C'est faux — l'erreur venait d'un nom
 de paramètre incorrect.

@@ -1,0 +1,208 @@
+# =============================================================================
+# TEST DE LECTURE PAR BLOCS SUR OND2 - pourquoi le scan comparatif y lit zero
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul. OUTIL PONCTUEL.
+#
+# LA QUESTION (28/08/2026, reprise le 13/09)
+#   gw-scan-diff.yaml lit 100 registres sur 100 cote Ond1 et ZERO cote Ond2,
+#   en blocs de 20 comme de 10, alors qu'Ond2 repond parfaitement aux
+#   lectures ciblees d'un a six registres.
+#
+# TROIS HYPOTHESES, une par source
+#   a) le document Growatt : 45 mots maximum par lecture, et JAMAIS a cheval
+#      sur un multiple de 45 ("40~60 is not OK"). Le bloc 40-49 du scan
+#      violait la regle. Mais pas les neuf autres.
+#   b) le composant modbus_controller : une lecture SANS REPONSE, apres les
+#      relances, met le controleur hors ligne et VIDE SA FILE. Le scan
+#      queuait ses dix blocs d'un coup : un seul refuse, et les neuf autres
+#      partaient a la poubelle. Ce mecanisme suffit a expliquer "zero".
+#   c) le firmware d'Ond2 (100.08, deux revisions devant Ond1) : une limite
+#      de taille de bloc plus basse, ou un refus de H0.
+#
+# LE TEST : neuf lectures UNE PAR UNE, espacees de 6 s, chacune
+#   tracee AVANT l'envoi ("Tn envoye") et A LA REPONSE ("Tn ... octets" +
+#   les quatre premiers mots). Un bloc refuse par exception sort par le
+#   composant en "Modbus error ... exception N" ; un bloc sans reponse ne
+#   produit rien d'autre que "Modbus device=2 set offline" apres relances,
+#   puis "back online" au cycle suivant. Chaque test est ainsi attribuable.
+#
+#   T1  holding          20 x10  bloc de 10 tout defini (H20-H29)
+#   T2  holding           0 x9   bloc de 9 aligne sur 45, avec H0
+#   T3  holding           0 x10  le premier bloc du scan-diff, tel quel
+#   T4  holding          40 x10  a cheval sur 45 - interdit par le document
+#   T5  holding          45 x9   horloge + reserves 51-53
+#   T6  input_register  108 x45  miroir A, 45 mots, holding 0-44
+#   T7  input_register  153 x45  miroir B, 45 mots, holding 45-89
+#   T8  holding           0 x20  bloc de 20, la premiere tentative du 28/08
+#   T9  holding           0 x45  45 mots, le maximum du document
+#
+# LIRE : flux /events de l'ESP (curl -sN http://ip/events) pendant ~59 s
+#   apres appui sur "Test blocs Ond2".
+#
+# RESULTAT DU 13/09/2026 a 00:37 - RETIRE de growatt.yaml dans la foulee
+#   NEUF REPONSES SUR NEUF, tailles exactes (18, 20, 40, 90 octets), valeurs
+#   justes : T1 "1 1 1 21849", T2/T3/T8/T9 "0 2 1 0" (H0-H3), T4 a cheval
+#   sur 45 "0 65532 1 20006" (H40-H43), T5 "2026 9 13 0" (horloge).
+#   Aucune exception, aucune mise hors ligne. Hypotheses a) et c) mortes :
+#   Ond2 accepte les blocs, meme ceux que le document interdit. Reste b),
+#   la file videe sur non-reponse : gw-scan-diff.yaml lit desormais une
+#   trame a la fois, et fonctionne.
+#
+#   BONUS : le MIROIR input/holding d'Ond2 est decale de 113, pas de 108
+#   comme sur Ond1 - T7 (input 153) a rendu H40-H43, T6 (input 108) des
+#   zeros. Un firmware, un decalage. Ne pas s'en servir sans le verifier
+#   sur chaque machine.
+#
+#   Le fichier reste ici, non inclus, pret a resservir.
+# =============================================================================
+
+script:
+
+  - id: test_blocs_ond2
+    mode: single
+    then:
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, 20, 10,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T1 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T1 envoye : holding 20 x10");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, 0, 9,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T2 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T2 envoye : holding 0 x9");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, 0, 10,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T3 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T3 envoye : holding 0 x10");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, 40, 10,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T4 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T4 envoye : holding 40 x10");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, 45, 9,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T5 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T5 envoye : holding 45 x9");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::INPUT_REGISTER, 108, 45,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T6 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T6 envoye : input_register 108 x45");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::INPUT_REGISTER, 153, 45,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T7 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T7 envoye : input_register 153 x45");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, 0, 20,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T8 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T8 envoye : holding 0 x20");
+      - delay: 6s
+      - lambda: |-
+          auto *c = id(growatt2);
+          c->queue_command(
+            esphome::modbus_controller::ModbusCommandItem::create_read_command(
+              c, esphome::modbus::EntityType::HOLDING, 0, 45,
+              [](esphome::modbus::EntityType, uint16_t start,
+                 std::span<const uint8_t> data) {
+                char buf[160];
+                int n = snprintf(buf, sizeof(buf), "T9 reponse : %u octets, mots", (unsigned) data.size());
+                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
+                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
+                ESP_LOGW("t2", "%s", buf);
+              }));
+          ESP_LOGW("t2", "T9 envoye : holding 0 x45");
+      - delay: 6s
+      - lambda: |-
+          ESP_LOGW("t2", "Fin des tests Ond2");
+
+button:
+  - platform: template
+    name: "${upper_devicename} Test blocs Ond2"
+    icon: mdi:test-tube
+    entity_category: diagnostic
+    on_press:
+      - script.execute: test_blocs_ond2
