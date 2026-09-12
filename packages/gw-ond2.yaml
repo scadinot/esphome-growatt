@@ -13,6 +13,10 @@
 #   frequence reseau (meme reseau).
 #
 # Son horloge est dans gw-horloges.yaml, ses entites PV dans gw-pv-off.yaml.
+#
+# PREFIXE [BMS] : trompeur ici comme sur le n1, ce sont des registres de
+#   l'onduleur (60-63, 73, 77), et NEGATIF = CHARGE. Explication complete en
+#   tete de gw-ond1-mesures.yaml. Les vraies donnees CAN : gw-bms-can.yaml.
 # =============================================================================
 
 sensor:

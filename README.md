@@ -105,6 +105,14 @@ Quatre changements, un seul flash :
 - **`gw-scan-diff.yaml` porté sur la nouvelle API** du composant
   (`std::span`, `modbus::EntityType`) : la compilation échouait sans cela.
 
+Même soir, second flash : recherche des données BMS reçues par le CAN. Le
+bloc input 90-117 du document Growatt de 2017 est **vide sur l'ES Plus**, et
+un balayage de input 90-999 et 3000-3299 n'a trouvé ni SOC, ni tension, ni
+cellules — seulement un **miroir des holding registers en input 108-210**.
+L'onduleur ne laisse voir du CAN que le SOC (input 18), la limite de courant
+(H34) et la tension de charge (H35/H36 = 57,0 V). Compte rendu dans
+`gw-bms-can.yaml`, outil de balayage conservé dans `gw-scan-input.yaml`.
+
 Reste à corriger : `gw-firmware.yaml` affirme en tête que l'outil de lecture
 ne sait pas descendre dans `packages/`. C'est faux — l'erreur venait d'un nom
 de paramètre incorrect.

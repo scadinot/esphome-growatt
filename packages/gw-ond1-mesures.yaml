@@ -18,6 +18,27 @@
 # EN internal: true - actifs mais invisibles dans HA, leur contenu etant
 #   restitue par un libelle texte ou un capteur d'alarme de gw-ond1-libelles.
 #
+# LE PREFIXE [BMS] EST TROMPEUR - constate le 12/09/2026, NOMS CONSERVES
+#   [BMS] Battery Voltage (input 17), Discharge Today/Total (60-63),
+#   Discharge Power (73), Battery Power (77), Battery Current (calcule) et
+#   Over Charge Flag (80) portent des registres de l'ONDULEUR : le document
+#   Growatt (docs/) appelle 17 "Bat Volt (M3)", la mesure de son propre
+#   microcontroleur, et les autres sont ses compteurs. Seul le SOC (18)
+#   vient du BMS, en mode LI. Ce que l'onduleur laisse voir du CAN se
+#   limite a trois choses : ce SOC, la limite de courant de charge (H34,
+#   dynamique, 0 batterie pleine) et la tension de charge (H35/H36 =
+#   57,0 V, la consigne CV du BMS). Le bloc input 90-117 du document est
+#   VIDE sur l'ES Plus - balayage du 12/09/2026, compte rendu dans
+#   packages/gw-bms-can.yaml.
+#   On ne renomme pas - l'historique de ces entites compte, voir NE PLUS
+#   RENOMMER dans growatt.yaml. Le prefixe reste, cette note aussi.
+#
+# SIGNE DES PUISSANCES BATTERIE : chez Growatt, NEGATIF = CHARGE. Verifie le
+#   12/09/2026 : -2728 W et -50,4 A pendant une charge reseau a 50,3 A.
+#   C'est l'INVERSE de la convention Docan (positif = charge). Les deux
+#   familles de courants batterie sont de signe oppose sur un meme tableau
+#   de bord - ne pas les additionner sans y penser.
+#
 # Entites PV commentees : packages/gw-pv-off.yaml.
 # Composantes de l'horloge : packages/gw-horloges.yaml.
 # =============================================================================
@@ -443,7 +464,8 @@ sensor:
     state_class: measurement
     accuracy_decimals: 0
 
-  # Courant batterie deduit : puissance / tension.
+  # Courant batterie deduit : puissance / tension. Herite du signe de
+  # l'input 77 : NEGATIF = charge, cf. en-tete.
   - platform: template
     name: "${upper_devicename} [BMS] Battery Current Ond1"
     id: battery_current

@@ -24,6 +24,8 @@
 #   packages/gw-comparaison.yaml ... reglages compares Ond1 / Ond2
 #   packages/gw-comparaison-b.yaml . complement : H39 H8 H94 H20 H3-H6 H22
 #   packages/gw-scan-diff.yaml ..... balayage H0-H99 et diff des deux
+#   packages/gw-bms-can.yaml ....... donnees BMS par CAN : compte rendu, VIDE
+#   packages/gw-scan-input.yaml .... balayage input 90-3299, NON inclus
 # =============================================================================
 # LES DEUX ONDULEURS
 #   Adresse Modbus 1 (Prog 28) ... serie KHM8F3X0XD
@@ -76,6 +78,13 @@
 #   H18 EST UNE ENUMERATION, pas une tension : il vaut 1 sur les DEUX
 #   onduleurs (1 = 230 V). L'ecart de 2.1 V entre les sorties ne vient donc
 #   PAS d'un reglage. Verifie le 28/08/2026.
+#
+#   MIROIR EN INPUT - balayage du 12/09/2026 : les input registers 108 a
+#   ~210 recopient les holding 0 a ~102 (input = holding + 108) : firmware
+#   en 117-122, serie en 131-135, H34-H39 en 142-147, horloge en 153-158,
+#   H82 en 190. Detail dans packages/gw-bms-can.yaml. Piste pour le scan
+#   comparatif d'Ond2, qui refuse les blocs en holding : jamais essaye en
+#   input.
 # =============================================================================
 # MATERIEL : Waveshare ESP32-S3-ETH + PoE Module (B)
 # -----------------------------------------------------------------------------
@@ -185,6 +194,7 @@ packages:
   comparaison:   !include packages/gw-comparaison.yaml
   comparaison_b: !include packages/gw-comparaison-b.yaml
   scan_diff:     !include packages/gw-scan-diff.yaml
+  bms_can:       !include packages/gw-bms-can.yaml
 
 esphome:
   name: ${device_name}

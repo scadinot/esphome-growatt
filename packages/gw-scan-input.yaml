@@ -1,0 +1,213 @@
+# =============================================================================
+# BALAYAGE DES INPUT REGISTERS D'OND1 - a la recherche des donnees BMS
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne se compile pas seul. OUTIL PONCTUEL.
+#
+# POURQUOI (12/09/2026)
+#   Le document Growatt du depot (SPF5000, V0.11, 2017) place les donnees
+#   recues du BMS par le CAN en input 90-117. Lus sur le SPF 6000 ES Plus le
+#   12/09/2026 (gw-bms-can.yaml) : SOC 0, tension 0, courant 0, et des
+#   valeurs residuelles (1, 2) sans sens - pas d'exception Modbus, mais pas
+#   de BMS non plus. L'ES Plus range ces donnees ailleurs, ou nulle part.
+#
+# CE QUE L'ON CHERCHE, en clair, dans les valeurs brutes :
+#   le SOC (98 ce soir), la tension pack (538x en 0,01 V ou 538 en 0,1 V),
+#   les cellules (3342 a 3352 en mV), la limite de charge du BMS.
+#   Toute suite de seize valeurs voisines de 3350 est la signature des
+#   cellules et fixe le debut du bloc.
+#
+# COMMENT
+#   Bouton "Scan input Ond1" : 136 blocs de 9 registres, 7 lambdas
+#   espacees de 12 s pour ne pas saturer la file du hub. Chaque bloc
+#   contenant au moins une valeur non nulle sort une ligne WARN "scanin"
+#   avec ses registres non nuls ; les blocs a zero sont muets ; un registre
+#   inexistant sort en "Modbus error ... exception 2" par le composant
+#   lui-meme. Lire dans le flux /events de l'ESP (curl -sN http://ip/events)
+#   ou dans les logs du tableau de bord ESPHome. Duree : ~84 s.
+#
+#   Blocs de 9 alignes sur des multiples de 9 : jamais a cheval sur un
+#   multiple de 45, la limite que le document impose aux lectures.
+#
+#   Plages : 90-999 et 3000-3299. La seconde est un pari sur l'organisation
+#   des SPH/SPA de la meme marque, qui logent la batterie en 3000+.
+#
+# RESULTAT DU 12/09/2026 a 23:53 - RETIRE de growatt.yaml dans la foulee
+#   Aucune donnee BMS. Input 108-210 est un MIROIR des holding 0-102
+#   (firmware, serie, reglages, horloge), le reste est vide ou residuel.
+#   Compte rendu complet et decodage dans packages/gw-bms-can.yaml.
+#   Le fichier reste ici, pret a etre re-inclus pour balayer 83-89,
+#   1000-2999 ou au-dela de 3300 - il suffit de changer PLAGES dans le
+#   script generateur, ou les tableaux debuts[] a la main.
+# =============================================================================
+
+script:
+
+  - id: scan_input
+    mode: single
+    then:
+      - lambda: |-
+          ESP_LOGW("scanin", "Debut du balayage input Ond1, 136 blocs de 9");
+      - lambda: |-
+          auto *c = id(growatt);
+          static const uint16_t debuts[] = {90, 99, 108, 117, 126, 135, 144, 153, 162, 171, 180, 189, 198, 207, 216, 225, 234, 243, 252, 261};
+          for (uint16_t b : debuts) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
+                  char buf[200];
+                  int n = 0;
+                  for (int i = 0; i < 9; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    uint16_t v = (data[p] << 8) | data[p + 1];
+                    if (v != 0 && n < 170)
+                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
+                  }
+                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                }));
+          }
+      - delay: 12s
+      - lambda: |-
+          auto *c = id(growatt);
+          static const uint16_t debuts[] = {270, 279, 288, 297, 306, 315, 324, 333, 342, 351, 360, 369, 378, 387, 396, 405, 414, 423, 432, 441};
+          for (uint16_t b : debuts) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
+                  char buf[200];
+                  int n = 0;
+                  for (int i = 0; i < 9; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    uint16_t v = (data[p] << 8) | data[p + 1];
+                    if (v != 0 && n < 170)
+                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
+                  }
+                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                }));
+          }
+      - delay: 12s
+      - lambda: |-
+          auto *c = id(growatt);
+          static const uint16_t debuts[] = {450, 459, 468, 477, 486, 495, 504, 513, 522, 531, 540, 549, 558, 567, 576, 585, 594, 603, 612, 621};
+          for (uint16_t b : debuts) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
+                  char buf[200];
+                  int n = 0;
+                  for (int i = 0; i < 9; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    uint16_t v = (data[p] << 8) | data[p + 1];
+                    if (v != 0 && n < 170)
+                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
+                  }
+                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                }));
+          }
+      - delay: 12s
+      - lambda: |-
+          auto *c = id(growatt);
+          static const uint16_t debuts[] = {630, 639, 648, 657, 666, 675, 684, 693, 702, 711, 720, 729, 738, 747, 756, 765, 774, 783, 792, 801};
+          for (uint16_t b : debuts) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
+                  char buf[200];
+                  int n = 0;
+                  for (int i = 0; i < 9; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    uint16_t v = (data[p] << 8) | data[p + 1];
+                    if (v != 0 && n < 170)
+                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
+                  }
+                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                }));
+          }
+      - delay: 12s
+      - lambda: |-
+          auto *c = id(growatt);
+          static const uint16_t debuts[] = {810, 819, 828, 837, 846, 855, 864, 873, 882, 891, 900, 909, 918, 927, 936, 945, 954, 963, 972, 981};
+          for (uint16_t b : debuts) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
+                  char buf[200];
+                  int n = 0;
+                  for (int i = 0; i < 9; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    uint16_t v = (data[p] << 8) | data[p + 1];
+                    if (v != 0 && n < 170)
+                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
+                  }
+                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                }));
+          }
+      - delay: 12s
+      - lambda: |-
+          auto *c = id(growatt);
+          static const uint16_t debuts[] = {990, 999, 3000, 3009, 3018, 3027, 3036, 3045, 3054, 3063, 3072, 3081, 3090, 3099, 3108, 3117, 3126, 3135, 3144, 3153};
+          for (uint16_t b : debuts) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
+                  char buf[200];
+                  int n = 0;
+                  for (int i = 0; i < 9; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    uint16_t v = (data[p] << 8) | data[p + 1];
+                    if (v != 0 && n < 170)
+                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
+                  }
+                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                }));
+          }
+      - delay: 12s
+      - lambda: |-
+          auto *c = id(growatt);
+          static const uint16_t debuts[] = {3162, 3171, 3180, 3189, 3198, 3207, 3216, 3225, 3234, 3243, 3252, 3261, 3270, 3279, 3288, 3297};
+          for (uint16_t b : debuts) {
+            c->queue_command(
+              esphome::modbus_controller::ModbusCommandItem::create_read_command(
+                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
+                [](esphome::modbus::EntityType, uint16_t start,
+                   std::span<const uint8_t> data) {
+                  char buf[200];
+                  int n = 0;
+                  for (int i = 0; i < 9; i++) {
+                    size_t p = i * 2;
+                    if (p + 1 >= data.size()) break;
+                    uint16_t v = (data[p] << 8) | data[p + 1];
+                    if (v != 0 && n < 170)
+                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
+                  }
+                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                }));
+          }
+      - delay: 12s
+      - lambda: |-
+          ESP_LOGW("scanin", "Fin du balayage input Ond1");
+
+button:
+  - platform: template
+    name: "${upper_devicename} Scan input Ond1"
+    icon: mdi:magnify-scan
+    entity_category: diagnostic
+    on_press:
+      - script.execute: scan_input

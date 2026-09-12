@@ -1,0 +1,58 @@
+# =============================================================================
+# CE QUE L'ONDULEUR RECOIT DU BMS PAR LE CAN - COMPTE RENDU, PAQUET VIDE
+# =============================================================================
+# PAQUET inclus par growatt.yaml. Ne contient AUCUNE entite : un paquet sans
+# cle est valide, et celui-ci ne sert qu'a garder la reponse a une question
+# qu'on se reposera.
+#
+# LA QUESTION (12/09/2026)
+#   Les entites prefixees [BMS] de gw-ond1-mesures et gw-ond2 portent des
+#   registres de l'ONDULEUR, pas du BMS (voir l'en-tete de gw-ond1-mesures).
+#   Le document Growatt du depot (SPF5000, V0.11, 2017) place les donnees
+#   recues du BMS par le CAN en input 90-117 : statut, SOC, tension,
+#   COURANT, temperature, limite de charge, tension CV, seize cellules.
+#   Input 95 aurait montre le courant agrege tel que le BMS maitre l'annonce
+#   a l'onduleur - le cote RECEPTEUR du bug /10 documente dans le depot
+#   Docan - et input 97 la limite de charge qui fait varier H34.
+#
+# LA REPONSE : CE BLOC N'EXISTE PAS SUR LE SPF 6000 ES PLUS
+#   1. Douze entites brutes sur input 90-101, les deux onduleurs, flashees a
+#      23:41 : SOC 0, tension 0, courant 0, temperature 0, limite 0, et des
+#      residus (1, 2) sans sens. Pas d'exception Modbus - l'onduleur repond,
+#      mais il n'y a rien.
+#   2. Balayage complet (gw-scan-input.yaml) de input 90-999 et 3000-3299
+#      cote Ond1, blocs de 9, batterie a 98 % / 53,80 V / cellules 3342 a
+#      3352 mV a ce moment-la. Registres non nuls, TOUS decodes :
+#        I108-I210 ... MIROIR des holding 0-102 (input = holding + 108) :
+#                      I117-122 = "100.06" "101.05" en ASCII, I131-135 =
+#                      "KHM8F3X0XD", I143/144 = 570 (H35/H36), I145 = 500
+#                      (H37), I146 = 10 (H38), I147 = 3 (H39), I153-158 =
+#                      2026 9 12 23 54 26 (H45-50), I190 = 200 (H82)
+#        I260-272 .... 8224 = "  ", des chaines ASCII vides
+#        I659 ........ 30000 ; I745-771 quelques codes (264, 770, 1284,
+#                      1798 = paires d'octets 01 08, 03 02, 05 04, 07 06)
+#        I3181/3182 .. 15716, 8192
+#      NULLE PART : 98, 538x, une suite de seize valeurs vers 3350, une
+#      limite de courant. L'onduleur repond des zeros aux adresses hors
+#      carte au lieu d'une exception, on ne peut donc pas borner la carte
+#      par l'erreur.
+#   Non balayes : input 83-89, 1000-2999, au-dela de 3300. Peu probable,
+#   pas impossible. L'outil reste dans packages/ pour le jour ou.
+#
+# CE QUE L'ONDULEUR LAISSE VOIR DU CAN, en tout et pour tout
+#   - le SOC ................ input 18 ([BMS] Battery SOC, le seul [BMS]
+#                             qui merite son prefixe)
+#   - la limite de courant .. H34 Max Charge Current, DYNAMIQUE : 100, 280,
+#                             400 selon les jours, 0 batterie pleine le
+#                             12/09 sur les DEUX onduleurs
+#   - la tension de charge .. H35 = H36 = 570 : 57,0 V, la consigne CV que
+#                             le BMS envoie par le CAN (trame 0x351 du
+#                             protocole PYLON), non un reglage utilisateur
+#   Le courant, lui, n'est pas expose : la preuve du /10 cote recepteur
+#   n'est pas accessible par Modbus. Elle reste celle du depot Docan.
+#
+# PISTE OUVERTE PAR LE MIROIR : le scan comparatif d'Ond2 echoue sur les
+#   blocs en HOLDING. Le meme contenu existe en INPUT, 108-210, et Ond2
+#   n'a jamais ete essaye en input par blocs. Une lecture de 45 mots en
+#   108-152 et une en 153-197 couvriraient toute la carte.
+# =============================================================================
