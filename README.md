@@ -55,6 +55,13 @@ protège l'item qui le porte — **mais pas les voisins de la plage qu'il vient
 d'ouvrir**. Vécu deux fois : le 22/08 sur les selects, le 28/08 sur les quatre
 fenêtres horaires d'Ond1.
 
+Précision du 13/09 : `force_new_range` sur *tout* item à `skip_updates`
+produisait dix-neuf trames d'un registre côté Ond2, tirées ensemble toutes
+les 10 min 30. Il n'est nécessaire que face à un voisin contigu *sans*
+`skip_updates` ; des voisins au même `skip` se regroupent en une trame.
+Les capteurs de comparaison d'Ond2 sont passés de 19 à 8 trames, et c'est
+H38 (AC1 Ond2, sans skip) qui porte désormais le `force_new_range`.
+
 Corollaire : ne jamais dupliquer un registre déjà lu par une autre entité.
 Vécu une troisième fois, et découvert le 12/09 seulement : sept registres
 Ond1 étaient lus à la fois par un select ou un number et par un capteur de

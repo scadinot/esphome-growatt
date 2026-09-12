@@ -31,6 +31,13 @@
 #   gw-ond1-reglages.yaml, et ce doublon les privait de toute valeur - voir
 #   l'incident n.2 en tete de gw-comparaison.yaml. Ne restent ici que des
 #   registres Ond2, plus H94 qu'aucune entite Ond1 ne lit.
+#
+# force_new_range RETIRE des capteurs Ond2 le 13/09/2026 pour qu'ils se
+#   regroupent en plages contigues (H3-H6 avec H1-H2, H18-H20, H94 avec H95)
+#   - explication en tete de gw-comparaison.yaml. Il RESTE sur "Seuil
+#   coupure basse V Ond1" : cote Ond1, H95 est un number SANS skip_updates
+#   et lui serait contigu ; sans force_new_range, H94 l'affamerait. C'est
+#   exactement le piege n.1.
 # =============================================================================
 
 sensor:
@@ -48,7 +55,6 @@ sensor:
     value_type: U_WORD
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     icon: mdi:battery-unknown
     entity_category: diagnostic
 
@@ -65,7 +71,6 @@ sensor:
     value_type: U_WORD
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   # === Seuil de coupure basse en VOLTS - le pendant du Prog 21 =============
@@ -93,7 +98,6 @@ sensor:
     accuracy_decimals: 1
     filters: [multiply: 0.1]
     skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   # === Comportement en surcharge ===========================================
@@ -107,7 +111,6 @@ sensor:
     value_type: U_WORD
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   # === Recopies Ond2 des fenetres horaires et du buzzer ====================
@@ -123,7 +126,6 @@ sensor:
     unit_of_measurement: "h"
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -135,7 +137,6 @@ sensor:
     unit_of_measurement: "h"
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -147,7 +148,6 @@ sensor:
     unit_of_measurement: "h"
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -159,7 +159,6 @@ sensor:
     unit_of_measurement: "h"
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -170,6 +169,5 @@ sensor:
     value_type: U_WORD
     accuracy_decimals: 0
     skip_updates: 20
-    force_new_range: true
     icon: mdi:volume-high
     entity_category: diagnostic

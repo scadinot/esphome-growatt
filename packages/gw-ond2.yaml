@@ -357,6 +357,13 @@ sensor:
   # ATTENTION : c'est un HOLDING register, a ne pas confondre avec
   #   "AC Charge Current Ond2" plus haut, qui est l'INPUT 68 - le courant
   #   reellement mesure, pas la consigne.
+  #
+  # force_new_range ICI, et non sur ses voisins (13/09/2026) : H37 et H39
+  #   sont des capteurs de comparaison en skip_updates: 20, regroupes depuis
+  #   ce jour sans force_new_range. Sans cette ligne, H38 prolongerait la
+  #   plage H34-H37, en heriterait le skip, et la recopie AC1 ne serait
+  #   verifiee que toutes les 10 minutes. Explication en tete de
+  #   gw-comparaison.yaml.
   # ---------------------------------------------------------------------------
   - platform: modbus_controller
     modbus_controller_id: growatt2
@@ -365,6 +372,7 @@ sensor:
     register_type: holding
     address: 38
     value_type: U_WORD
+    force_new_range: true
     unit_of_measurement: "A"
     device_class: current
     accuracy_decimals: 0

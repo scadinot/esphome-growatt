@@ -133,6 +133,11 @@
 #    et numbers voisins - l'ecriture partait, le LCD suivait, mais l'entite
 #    retombait sur une valeur perimee.
 #    CORRECTIF : force_new_range: true sur tout item porteur de skip_updates.
+#    PRECISION du 13/09/2026 : ce correctif applique partout a produit dix-
+#    neuf trames d'un registre cote Ond2. force_new_range n'est necessaire
+#    que si l'item a un VOISIN CONTIGU SANS skip_updates ; des voisins qui
+#    partagent le meme skip peuvent se regrouper en une trame. Detail en
+#    tete de gw-comparaison.yaml.
 #
 # 2. "Duplicate modbus command found" ne signale PAS un doublon d'entite :
 #    ESPHome trouve une commande identique deja en file et ne l'ajoute pas
