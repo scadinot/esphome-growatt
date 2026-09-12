@@ -134,6 +134,12 @@ les sorties découplées n'a donc aucun réglage pour cause ; il ne reste que le
 DSP (101.05 contre 101.07). Au passage, le miroir input/holding d'Ond2 est
 décalé de 113 et non de 108 : un firmware, un décalage.
 
+Même nuit : les huit codes énumérés d'Ond2 (H1, H2, H8, H18, H19, H20, H22,
+H39) sont devenus des libellés, copiés des `optionsmap` des selects Ond1 —
+les deux colonnes du tableau de bord *Synchronisation* se lisent pareil. Le
+capteur numérique brut reste en `internal`, le `text_sensor` a repris son nom
+et donc son identifiant HA.
+
 Reste à corriger : `gw-firmware.yaml` affirme en tête que l'outil de lecture
 ne sait pas descendre dans `packages/`. C'est faux — l'erreur venait d'un nom
 de paramètre incorrect.

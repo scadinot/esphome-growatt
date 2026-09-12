@@ -6,18 +6,12 @@
 # figuraient pas encore. Ensemble, les deux fichiers couvrent TOUT ce que
 # l'en-tete de growatt.yaml documente.
 #
-# POURQUOI PAR ENTITES ET NON PAR BALAYAGE
-#   gw-scan-diff.yaml devait lire H0-H99 sur les deux et tout comparer d'un
-#   coup. Il lit 100 registres sur 100 cote Ond1 et ZERO cote Ond2, avec des
-#   blocs de 20 comme de 10. Ond2 repond pourtant parfaitement aux lectures
-#   ciblees : tout ce fichier et tout gw-comparaison.yaml viennent de lui.
-#   Cause inconnue. Trois tentatives ont suffi - on prend la voie qui marche.
-#   Le scan reste en place, il signale honnetement son echec.
-#
-# CONSEQUENCE A ASSUMER : la couverture est celle de la cartographie LCD,
-#   qui n'est pas garantie exhaustive. Un reglage que personne n'a jamais
-#   touche sur l'ecran reste invisible. C'est mieux qu'avant, ce n'est pas
-#   une preuve d'identite complete entre les deux machines.
+# ENTITES ET BALAYAGE, les deux
+#   Ces entites sont le SUIVI PERMANENT des reglages connus, visibles sur le
+#   tableau de bord. gw-scan-diff.yaml est le CONTROLE EXHAUSTIF : il a
+#   longtemps lu zero cote Ond2 (cause resolue le 13/09/2026, voir son
+#   en-tete) et compare aujourd'hui les 99 registres des deux machines -
+#   aucun reglage ne differe, verifie le 13/09.
 #
 # H3-H6 : ORDRE CORRIGE le 12/09/2026. La premiere version l'avait "deduit"
 #   des entites number d'Ond1 en les lisant a l'envers : H3 etait libelle
@@ -49,7 +43,9 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Code type batterie Ond2"
+    name: "${upper_devicename} Code type batterie brut Ond2"
+    id: cmp2_h39
+    internal: true
     register_type: holding
     address: 39
     value_type: U_WORD
@@ -65,7 +61,9 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Code mode entree AC Ond2"
+    name: "${upper_devicename} Code mode entree AC brut Ond2"
+    id: cmp2_h8
+    internal: true
     register_type: holding
     address: 8
     value_type: U_WORD
@@ -105,7 +103,9 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Code surcharge Ond2"
+    name: "${upper_devicename} Code surcharge brut Ond2"
+    id: cmp2_h20
+    internal: true
     register_type: holding
     address: 20
     value_type: U_WORD
@@ -163,7 +163,9 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Code buzzer Ond2"
+    name: "${upper_devicename} Code buzzer brut Ond2"
+    id: cmp2_h22
+    internal: true
     register_type: holding
     address: 22
     value_type: U_WORD
@@ -171,3 +173,74 @@ sensor:
     skip_updates: 20
     icon: mdi:volume-high
     entity_category: diagnostic
+
+text_sensor:
+
+  # ---------------------------------------------------------------------------
+  # LIBELLES - 13/09/2026. Les codes bruts ci-dessus sont passes en internal ;
+  # ces text_sensors REPRENNENT LEUR NOM, donc leur identifiant HA, et le
+  # tableau de bord n'a rien a changer. Les textes sont COPIES des optionsmap
+  # des selects Ond1 (gw-ond1-reglages.yaml) pour que les deux colonnes se
+  # lisent pareil : si un optionsmap change, changer ici aussi. Un code hors
+  # table sort en "Code N" plutot qu'en silence.
+  # ---------------------------------------------------------------------------
+
+  - platform: template
+    name: "${upper_devicename} Code type batterie Ond2"
+    icon: mdi:battery-unknown
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h39).state)) return {};
+      int v = (int) id(cmp2_h39).state;
+      switch (v) {
+        case 0: return {"AGM"};
+        case 1: return {"Flooded"};
+        case 2: return {"User-Defined"};
+        case 3: return {"Lithium (avec BMS)"};
+        case 4: return {"User-Defined 2 (Li sans BMS)"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s
+
+  - platform: template
+    name: "${upper_devicename} Code mode entree AC Ond2"
+    icon: mdi:transmission-tower-import
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h8).state)) return {};
+      int v = (int) id(cmp2_h8).state;
+      switch (v) {
+        case 0: return {"APL (90-280VAC)"};
+        case 1: return {"UPS (170-280VAC)"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s
+
+  - platform: template
+    name: "${upper_devicename} Code surcharge Ond2"
+    icon: mdi:restart-alert
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h20).state)) return {};
+      int v = (int) id(cmp2_h20).state;
+      switch (v) {
+        case 0: return {"Yes (Auto restart)"};
+        case 1: return {"No (Stop)"};
+        case 2: return {"Switch to Utility"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s
+
+  - platform: template
+    name: "${upper_devicename} Code buzzer Ond2"
+    icon: mdi:volume-high
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h22).state)) return {};
+      int v = (int) id(cmp2_h22).state;
+      switch (v) {
+        case 0: return {"Inactif"};
+        case 1: return {"Actif"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s

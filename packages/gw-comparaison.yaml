@@ -118,7 +118,9 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Consigne tension sortie Ond2"
+    name: "${upper_devicename} Consigne tension sortie brut Ond2"
+    id: cmp2_h18
+    internal: true
     register_type: holding
     address: 18
     value_type: U_WORD
@@ -132,7 +134,9 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Consigne frequence Ond2"
+    name: "${upper_devicename} Consigne frequence brut Ond2"
+    id: cmp2_h19
+    internal: true
     register_type: holding
     address: 19
     value_type: U_WORD
@@ -223,11 +227,14 @@ sensor:
     entity_category: diagnostic
 
   # H1 et H2 cote Ond2 uniquement. Cote Ond1, voir les entites select.
-  # Codes bruts, non traduits : on compare deux nombres, ce qui suffit et
-  # evite d'inventer une table d'equivalence non verifiee.
+  # Codes bruts en internal ; les libelles sont dans les text_sensors en fin
+  # de fichier, copies des optionsmap d'Ond1 - la table d'equivalence n'est
+  # plus inventee, elle est celle que les selects utilisent deja.
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Code priorite sortie Ond2"
+    name: "${upper_devicename} Code priorite sortie brut Ond2"
+    id: cmp2_h1
+    internal: true
     register_type: holding
     address: 1
     value_type: U_WORD
@@ -237,10 +244,83 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Code priorite charge Ond2"
+    name: "${upper_devicename} Code priorite charge brut Ond2"
+    id: cmp2_h2
+    internal: true
     register_type: holding
     address: 2
     value_type: U_WORD
     accuracy_decimals: 0
     skip_updates: 20
     entity_category: diagnostic
+
+text_sensor:
+
+  # ---------------------------------------------------------------------------
+  # LIBELLES - 13/09/2026. Les codes bruts ci-dessus sont passes en internal ;
+  # ces text_sensors REPRENNENT LEUR NOM, donc leur identifiant HA, et le
+  # tableau de bord n'a rien a changer. Les textes sont COPIES des optionsmap
+  # des selects Ond1 (gw-ond1-reglages.yaml) pour que les deux colonnes se
+  # lisent pareil : si un optionsmap change, changer ici aussi. Un code hors
+  # table sort en "Code N" plutot qu'en silence.
+  # ---------------------------------------------------------------------------
+
+  - platform: template
+    name: "${upper_devicename} Consigne tension sortie Ond2"
+    icon: mdi:sine-wave
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h18).state)) return {};
+      int v = (int) id(cmp2_h18).state;
+      switch (v) {
+        case 0: return {"208VAC"};
+        case 1: return {"230VAC"};
+        case 2: return {"240VAC"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s
+
+  - platform: template
+    name: "${upper_devicename} Consigne frequence Ond2"
+    icon: mdi:sine-wave
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h19).state)) return {};
+      int v = (int) id(cmp2_h19).state;
+      switch (v) {
+        case 0: return {"50Hz"};
+        case 1: return {"60Hz"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s
+
+  - platform: template
+    name: "${upper_devicename} Code priorite sortie Ond2"
+    icon: mdi:transmission-tower
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h1).state)) return {};
+      int v = (int) id(cmp2_h1).state;
+      switch (v) {
+        case 0: return {"SBU (Solar-Battery-Utility)"};
+        case 1: return {"SOL (Solar First)"};
+        case 2: return {"UTI (Utility First)"};
+        case 3: return {"SUB (Solar-Utility-Battery)"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s
+
+  - platform: template
+    name: "${upper_devicename} Code priorite charge Ond2"
+    icon: mdi:battery-charging
+    entity_category: diagnostic
+    lambda: |-
+      if (isnan(id(cmp2_h2).state)) return {};
+      int v = (int) id(cmp2_h2).state;
+      switch (v) {
+        case 0: return {"CSO (Solar First)"};
+        case 1: return {"SNU (Solar and Utility)"};
+        case 2: return {"OSO (Only Solar)"};
+        default: return {"Code " + to_string(v)};
+      }
+    update_interval: 60s
