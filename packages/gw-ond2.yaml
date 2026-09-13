@@ -17,6 +17,12 @@
 # PREFIXE [BMS] : trompeur ici comme sur le n1, ce sont des registres de
 #   l'onduleur (60-63, 73, 77), et NEGATIF = CHARGE. Explication complete en
 #   tete de gw-ond1-mesures.yaml. Les vraies donnees CAN : gw-bms-can.yaml.
+#
+# Work Time Total Ond2 RETIRE le 13/09/2026 : 0,0 h depuis le 13/08, registre
+#   non implemente sur l'ES Plus, une trame par cycle pour rien.
+# Defauts et avertissements : quatre registres 40-43 et libelles a double
+#   lecture depuis le 13/09/2026, meme logique que le n1 - encadre en tete de
+#   gw-ond1-libelles.yaml.
 # =============================================================================
 
 sensor:
@@ -124,18 +130,6 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
-    name: "${upper_devicename} Work Time Total Ond2"
-    register_type: read
-    address: 30
-    value_type: U_DWORD
-    unit_of_measurement: "h"
-    state_class: total_increasing
-    accuracy_decimals: 1
-    filters:
-      - multiply: 0.0001388889
-
-  - platform: modbus_controller
-    modbus_controller_id: growatt2
     name: "${upper_devicename} Output Current Ond2"
     register_type: read
     address: 34
@@ -190,6 +184,28 @@ sensor:
     internal: true
     register_type: read
     address: 41
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  # 42 et 43 ajoutes le 13/09/2026, meme trame : voir l'encadre "DEFAUTS ET
+  # AVERTISSEMENTS" de gw-ond1-libelles.yaml.
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} BMS Warning Bitmask High Ond2"
+    id: warning_code_high_2
+    internal: true
+    register_type: read
+    address: 42
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: growatt2
+    name: "${upper_devicename} Warning Value Ond2"
+    id: warning_value_2
+    internal: true
+    register_type: read
+    address: 43
     value_type: U_WORD
     accuracy_decimals: 0
 
@@ -420,84 +436,90 @@ text_sensor:
   - platform: template
     name: "${upper_devicename} Fault Text Ond2"
     lambda: |-
-      int code = (int) id(fault_code_2).state;
-      switch (code) {
-        case 0:  return {"OK"};
-        case 1:  return {"Fan fault"};
-        case 2:  return {"Over temperature"};
-        case 3:  return {"Battery over-charged"};
-        case 5:  return {"Output short circuit"};
-        case 6:  return {"Output voltage too high"};
-        case 7:  return {"Overload timeout"};
-        case 8:  return {"Bus voltage too high"};
-        case 9:  return {"Bus soft start failed"};
-        case 51: return {"Over current / surge"};
-        case 52: return {"Bus voltage too low"};
-        case 53: return {"Inverter soft start failed"};
-        case 55: return {"Over DC in AC output"};
-        case 56: return {"Battery connection open"};
-        case 57: return {"Current sensor failed"};
-        case 58: return {"Output voltage too low"};
-        case 60: return {"Negative power fault"};
-        case 61: return {"PV voltage too high"};
-        case 62: return {"Internal comm error"};
-        case 80: return {"CAN fault"};
-        case 81: return {"Host loss"};
-        default: return {"Unknown fault " + to_string(code)};
-      }
+      int c40 = (int) id(fault_code_2).state;
+      int c42 = (int) id(warning_code_high_2).state;
+      if (c40 == 0 && c42 == 0) return {"OK"};
+      // Table LCD du manuel : les numeros affiches a l'ecran de l'onduleur.
+      static const struct { int c; const char *s; } LCD[] = {
+        {1, "Fan fault"}, {2, "Over temperature"}, {3, "Battery over-charged"},
+        {5, "Output short circuit"}, {6, "Output voltage too high"},
+        {7, "Overload timeout"}, {8, "Bus voltage too high"},
+        {9, "Bus soft start failed"}, {51, "Over current / surge"},
+        {52, "Bus voltage too low"}, {53, "Inverter soft start failed"},
+        {55, "Over DC in AC output"}, {56, "Battery connection open"},
+        {57, "Current sensor failed"}, {58, "Output voltage too low"},
+        {60, "Negative power fault"}, {61, "PV voltage too high"},
+        {62, "Internal comm error"}, {80, "CAN fault"}, {81, "Host loss"}};
+      // Champ de bits du document Growatt (table &*8), 16 bits bas.
+      static const struct { int m; const char *s; } BITS[] = {
+        {0x0002, "CPU A-B comm error"}, {0x0004, "Battery sample inconsistent"},
+        {0x0008, "Buck over current"}, {0x0010, "BMS communication fault"},
+        {0x0020, "Battery abnormal"}, {0x0080, "Battery voltage high"},
+        {0x0100, "Over temperature"}, {0x0200, "Over load"}};
+      std::string s;
+      for (auto &e : LCD) if (e.c == c40) s = std::string("LCD ") + e.s;
+      if (s.empty()) for (auto &e : LCD) if (e.c == c42) s = std::string("LCD ") + e.s;
+      std::string b;
+      for (auto &e : BITS) if (c40 & e.m) { if (!b.empty()) b += ", "; b += e.s; }
+      if (!b.empty()) s += (s.empty() ? "bits " : " | bits ") + b;
+      if (s.empty()) s = "Inconnu";
+      char raw[40];
+      snprintf(raw, sizeof(raw), " [40=%d 42=%d]", c40, c42);
+      return {s + raw};
     update_interval: 30s
 
   - platform: template
     name: "${upper_devicename} Warning Text Ond2"
     lambda: |-
-      int code = (int) id(warning_code_2).state;
-      switch (code) {
-        case 0:  return {"OK"};
-        case 1:  return {"Fan locked"};
-        case 2:  return {"Over temperature"};
-        case 3:  return {"Battery over-charged"};
-        case 4:  return {"Low battery"};
-        case 7:  return {"Overload"};
-        case 10: return {"Output power derating"};
-        case 12: return {"Solar stop - low battery"};
-        case 13: return {"Solar stop - high PV voltage"};
-        case 14: return {"Solar stop - overload"};
-        case 15: return {"Parallel input grid different"};
-        case 16: return {"Parallel input phase error"};
-        case 17: return {"Parallel output phase loss"};
-        case 18: return {"Buck over current"};
-        case 19: return {"Battery disconnect"};
-        case 20: return {"BMS communication error"};
-        case 21: return {"PV power insufficient"};
-        case 22: return {"Parallel forbidden no battery"};
-        case 25: return {"Parallel capacity mismatch"};
-        case 33: return {"BMS communication loss"};
-        case 34: return {"Cell over voltage"};
-        case 35: return {"Cell under voltage"};
-        case 36: return {"Total over voltage"};
-        case 37: return {"Total under voltage"};
-        case 38: return {"Discharge over current"};
-        case 39: return {"Charge over current"};
-        case 40: return {"Discharge over temperature"};
-        case 41: return {"Charge over temperature"};
-        case 42: return {"Mosfet over temperature"};
-        case 43: return {"Battery over temperature"};
-        case 44: return {"Battery under temperature"};
-        case 45: return {"System shutdown"};
-        default: return {"Unknown warning " + to_string(code)};
-      }
+      int c41 = (int) id(warning_code_2).state;
+      int c43 = (int) id(warning_value_2).state;
+      if (c41 == 0 && c43 == 0) return {"OK"};
+      // Table LCD du manuel.
+      static const struct { int c; const char *s; } LCD[] = {
+        {1, "Fan locked"}, {2, "Over temperature"}, {3, "Battery over-charged"},
+        {4, "Low battery"}, {7, "Overload"}, {10, "Output power derating"},
+        {12, "Solar stop - low battery"}, {13, "Solar stop - high PV voltage"},
+        {14, "Solar stop - overload"}, {15, "Parallel input grid different"},
+        {16, "Parallel input phase error"}, {17, "Parallel output phase loss"},
+        {18, "Buck over current"}, {19, "Battery disconnect"},
+        {20, "BMS communication error"}, {21, "PV power insufficient"},
+        {22, "Parallel forbidden no battery"}, {25, "Parallel capacity mismatch"},
+        {33, "BMS communication loss"}, {34, "Cell over voltage"},
+        {35, "Cell under voltage"}, {36, "Total over voltage"},
+        {37, "Total under voltage"}, {38, "Discharge over current"},
+        {39, "Charge over current"}, {40, "Discharge over temperature"},
+        {41, "Charge over temperature"}, {42, "Mosfet over temperature"},
+        {43, "Battery over temperature"}, {44, "Battery under temperature"},
+        {45, "System shutdown"}};
+      // Champ de bits du document Growatt (table &*8).
+      static const struct { int m; const char *s; } BITS[] = {
+        {0x0001, "Battery voltage low"}, {0x0002, "Over temperature"},
+        {0x0004, "Over load"}, {0x0008, "EEPROM read fail"},
+        {0x0010, "Firmware version unmatch"}, {0x0020, "EEPROM write fail"},
+        {0x0040, "BMS warning"}, {0x0080, "Li-battery over load"},
+        {0x0100, "Li-battery aging"}, {0x0200, "Fan lock"}};
+      std::string s;
+      for (auto &e : LCD) if (e.c == c41) s = std::string("LCD ") + e.s;
+      if (s.empty()) for (auto &e : LCD) if (e.c == c43) s = std::string("LCD ") + e.s;
+      std::string b;
+      for (auto &e : BITS) if (c41 & e.m) { if (!b.empty()) b += ", "; b += e.s; }
+      if (!b.empty()) s += (s.empty() ? "bits " : " | bits ") + b;
+      if (s.empty()) s = "Inconnu";
+      char raw[40];
+      snprintf(raw, sizeof(raw), " [41=%d 43=%d]", c41, c43);
+      return {s + raw};
     update_interval: 30s
 
 binary_sensor:
 
   - platform: template
     name: "${upper_devicename} Fault Active Ond2"
-    lambda: return id(fault_code_2).state > 0;
+    lambda: return id(fault_code_2).state > 0 || id(warning_code_high_2).state > 0;
     device_class: problem
 
   - platform: template
     name: "${upper_devicename} Warning Active Ond2"
-    lambda: return id(warning_code_2).state > 0;
+    lambda: return id(warning_code_2).state > 0 || id(warning_value_2).state > 0;
     device_class: problem
 
   - platform: template

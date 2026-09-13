@@ -4,10 +4,9 @@
 # PAQUET inclus par growatt.yaml. Ne se compile pas seul.
 #
 # POURQUOI UN FICHIER A PART plutot qu'une addition dans gw-ond1-libelles :
-#   l'outillage de lecture ne rend que les fichiers de la racine, jamais le
-#   contenu de packages/. Reecrire un paquet existant imposerait de le
-#   retaper de memoire - donc de risquer d'en perdre un morceau. Un fichier
-#   neuf ne coute qu'une ligne d'inclusion et ne met rien en peril.
+#   le 27/08 on croyait que l'outillage de lecture ne savait pas descendre
+#   dans packages/. C'ETAIT FAUX - un mauvais nom de parametre (il s'appelle
+#   filenames). Le fichier reste a part parce que le sujet se tient seul.
 #
 # LES REGISTRES - VERIFIES SUR LE MATERIEL le 27/08/2026
 #   H9-H11  ... firmware principal      3 registres = 6 caracteres ASCII

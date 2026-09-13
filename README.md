@@ -140,6 +140,12 @@ les deux colonnes du tableau de bord *Synchronisation* se lisent pareil. Le
 capteur numérique brut reste en `internal`, le `text_sensor` a repris son nom
 et donc son identifiant HA.
 
-Reste à corriger : `gw-firmware.yaml` affirme en tête que l'outil de lecture
-ne sait pas descendre dans `packages/`. C'est faux — l'erreur venait d'un nom
-de paramètre incorrect.
+13/09, points 3 et 6 : les défauts et avertissements sont lus sur les quatre
+registres 40-43 et les libellés tentent les deux lectures — table LCD du
+manuel sur le numéro, table de bits du document Growatt sur le champ — en
+affichant toujours les valeurs brutes entre crochets, parce que rien n'a
+jamais été non nul et que les deux sources se contredisent ; le premier
+événement réel figera le décodage. Deux entités **RTC Dérive Ond1 / Ond2**
+mesurent chaque horloge contre le SNTP au moment de la lecture (positif = en
+avance) ; l'ancien « Écart Ond1-Ond2 » était un artefact d'échantillonnage.
+`Work Time Total` retiré (0,0 h depuis le 13/08, registre non implémenté).

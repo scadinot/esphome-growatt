@@ -41,6 +41,32 @@
 #
 # NE COMPARE QUE LES HEURES, pas les dates : un decalage de date ne s'y
 #   verrait pas. Comparer alors les deux libelles RTC en clair.
+#
+# =============================================================================
+# CE QUE L'ECART MESURE VRAIMENT - constate le 12/09/2026, et la reponse
+# ---------------------------------------------------------------------------
+# L'ecart ci-dessus compare deux horloges LUES A DES INSTANTS DIFFERENTS du
+# cycle, par un template qui tourne sur son propre timer de 30 s. Dans
+# l'historique : une dent de scie 1, 2, 3, 4, 5 s, des pics a +37/-15 s a
+# chaque cycle de rafale, puis un plateau a 24 s le soir du 12/09 apres le
+# flash 2026.8.2 - sans qu'aucune horloge ait bouge. La "ligne de base
+# -14 s" etait cet artefact. L'entite mesure l'ordre des trames, pas les
+# horloges ; elle ne sait pas dire mieux que quelques secondes, et elle ment
+# de 30 s des que l'ordonnancement change.
+#
+# LA REPONSE (13/09/2026) : "RTC Derive Ond1" et "RTC Derive Ond2", en
+#   secondes, chacune calculee AU MOMENT DE LA LECTURE, dans on_value du
+#   registre des secondes - le dernier des six de la plage 45-50, donc
+#   annee, mois, jour, heure et minute viennent d'etre rafraichis par la
+#   meme trame. L'horloge de l'onduleur et l'heure locale du SNTP passent
+#   toutes deux par mktime, puis on soustrait. PREMIERE VERSION FAUSSE de
+#   7200 s : mktime sur l'ESP ignore le fuseau, et comparer son resultat a
+#   l'epoch vrai (now.timestamp) ajoutait les deux heures d'Europe/Paris en
+#   ete. Avec la meme conversion des deux cotes, le fuseau s'annule.
+#   POSITIF = l'onduleur est EN AVANCE. Une horloge restee a l'heure d'hiver
+#   sort a -3600 tout rond.
+#   C'est CETTE derive qui compte pour les fenetres horaires, pas l'ecart
+#   entre les deux machines. L'ecart est conserve pour l'historique.
 # =============================================================================
 
 sensor:
@@ -105,6 +131,36 @@ sensor:
     address: 50
     value_type: U_WORD
     accuracy_decimals: 0
+    on_value:
+      - lambda: |-
+          auto now = id(heure_locale).now();
+          if (!now.is_valid()) return;
+          if (isnan(id(rtc_year).state) || isnan(id(rtc_month).state) || isnan(id(rtc_day).state) ||
+              isnan(id(rtc_hour).state) || isnan(id(rtc_minute).state)) return;
+          int year = (int) id(rtc_year).state;
+          if (year < 100) year += 2000;
+          struct tm t{};
+          t.tm_year = year - 1900;
+          t.tm_mon = (int) id(rtc_month).state - 1;
+          t.tm_mday = (int) id(rtc_day).state;
+          t.tm_hour = (int) id(rtc_hour).state;
+          t.tm_min = (int) id(rtc_minute).state;
+          t.tm_sec = (int) x;
+          t.tm_isdst = -1;
+          time_t rtc = mktime(&t);
+          // L'heure SNTP passe par la MEME conversion : ce que mktime fait du
+          // fuseau, il le fait aux deux, et la difference est exacte.
+          struct tm n{};
+          n.tm_year = now.year - 1900;
+          n.tm_mon = now.month - 1;
+          n.tm_mday = now.day_of_month;
+          n.tm_hour = now.hour;
+          n.tm_min = now.minute;
+          n.tm_sec = now.second;
+          n.tm_isdst = -1;
+          time_t ref = mktime(&n);
+          if (rtc <= 0 || ref <= 0) return;
+          id(rtc_derive_1).publish_state((float) (rtc - ref));
 
   # --- Onduleur 2, holding 45-50 --------------------------------------------
   - platform: modbus_controller
@@ -166,9 +222,60 @@ sensor:
     address: 50
     value_type: U_WORD
     accuracy_decimals: 0
+    on_value:
+      - lambda: |-
+          auto now = id(heure_locale).now();
+          if (!now.is_valid()) return;
+          if (isnan(id(rtc_year_2).state) || isnan(id(rtc_month_2).state) || isnan(id(rtc_day_2).state) ||
+              isnan(id(rtc_hour_2).state) || isnan(id(rtc_minute_2).state)) return;
+          int year = (int) id(rtc_year_2).state;
+          if (year < 100) year += 2000;
+          struct tm t{};
+          t.tm_year = year - 1900;
+          t.tm_mon = (int) id(rtc_month_2).state - 1;
+          t.tm_mday = (int) id(rtc_day_2).state;
+          t.tm_hour = (int) id(rtc_hour_2).state;
+          t.tm_min = (int) id(rtc_minute_2).state;
+          t.tm_sec = (int) x;
+          t.tm_isdst = -1;
+          time_t rtc = mktime(&t);
+          // L'heure SNTP passe par la MEME conversion : ce que mktime fait du
+          // fuseau, il le fait aux deux, et la difference est exacte.
+          struct tm n{};
+          n.tm_year = now.year - 1900;
+          n.tm_mon = now.month - 1;
+          n.tm_mday = now.day_of_month;
+          n.tm_hour = now.hour;
+          n.tm_min = now.minute;
+          n.tm_sec = now.second;
+          n.tm_isdst = -1;
+          time_t ref = mktime(&n);
+          if (rtc <= 0 || ref <= 0) return;
+          id(rtc_derive_2).publish_state((float) (rtc - ref));
 
-  # Ecart entre les deux horloges. LIGNE DE BASE : environ -14 s, ce n'est pas
-  # zero - voir l'encadre en tete de fichier.
+  # Derive de chaque onduleur contre le SNTP, publiee par les on_value
+  # ci-dessus. POSITIF = en avance. Voir l'encadre en tete de fichier.
+  - platform: template
+    name: "${upper_devicename} RTC Derive Ond1"
+    id: rtc_derive_1
+    unit_of_measurement: "s"
+    accuracy_decimals: 0
+    icon: mdi:clock-fast
+    entity_category: diagnostic
+    update_interval: never
+
+  - platform: template
+    name: "${upper_devicename} RTC Derive Ond2"
+    id: rtc_derive_2
+    unit_of_measurement: "s"
+    accuracy_decimals: 0
+    icon: mdi:clock-fast
+    entity_category: diagnostic
+    update_interval: never
+
+  # Ecart entre les deux horloges - un ARTEFACT d'echantillonnage a quelques
+  # secondes pres, voir l'encadre en tete de fichier. Conserve pour
+  # l'historique ; la mesure utile est RTC Derive Ond1 / Ond2.
   - platform: template
     name: "${upper_devicename} RTC Ecart Ond1-Ond2"
     unit_of_measurement: "s"
