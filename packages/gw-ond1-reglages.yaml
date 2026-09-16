@@ -12,8 +12,14 @@
 #   voisin, auquel cas elle revient alors qu'elle a bien ete acceptee - voir
 #   le piege decrit dans growatt.yaml. En cas de doute, comparer avec le LCD.
 #
-# AC1 (holding 38) est le SEUL reglage dont on a VERIFIE qu'il ne se propage
-#   pas. Il est synchronise ici meme, onduleur 1 maitre.
+# DEUX FAMILLES DE REGLAGES NE SE PROPAGENT PAS, verifie :
+#   AC1 (holding 38), le 23/08/2026 - chaque unite a son propre chargeur.
+#   Les fenetres horaires H3-H6, le 16/09/2026 - Ond1 mis a 22-6 depuis HA,
+#     Ond2 reste a 0-23 pendant des heures.
+#   Les deux sont RECOPIEES ici meme, onduleur 1 maitre, par commande Modbus
+#   directe. La garde de chaque recopie s'appuie sur le capteur Ond2
+#   correspondant : ac1_reglage_ond2 (gw-ond2.yaml) et cmp2_h3 a cmp2_h6
+#   (gw-comparaison-b.yaml).
 #   GEN1 est dans gw-pv-off.yaml.
 #   Les trois seuils de SOC (Prog 12, 13, 21) sont dans gw-seuils-soc.yaml -
 #   eux se propagent, verifie le 24/08/2026.
@@ -147,6 +153,35 @@ number:
     step: 1
     unit_of_measurement: "h"
     entity_category: config
+    on_value:
+      # Les fenetres horaires NE SE PROPAGENT PAS - verifie le 16/09/2026 :
+      # Ond1 est passe a 22-6 et Ond2 est reste a 0-23. Ond1 est donc MAITRE
+      # et recopie sur Ond2 par commande Modbus directe, comme AC1 plus bas.
+      #
+      # La garde est INDISPENSABLE : on_value se declenche a CHAQUE relecture,
+      # pas seulement quand la valeur change. Au demarrage l'etat du n2 est
+      # NaN, la condition renvoie false et la recopie attend un cycle.
+      - if:
+          condition:
+            lambda: |-
+              if (isnan(id(cmp2_h3).state)) return false;
+              return fabs(id(cmp2_h3).state - x) > 0.5f;
+          then:
+            - logger.log:
+                format: "H3 sortie debut : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
+                args: ['x', 'id(cmp2_h3).state']
+                level: INFO
+            - lambda: |-
+                auto *c = id(growatt2);
+                c->queue_command(
+                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
+                    c, 3, (uint16_t) roundf(x)));
+                // Cache mis a jour tout de suite : le capteur Ond2 est en
+                // skip_updates 20, soit une relecture toutes les 10 min. Sans
+                // cela la garde resterait vraie et on reecrirait toutes les
+                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
+                // cette relecture remet la vraie valeur et la recopie repart.
+                id(cmp2_h3).publish_state(x);
 
   - platform: modbus_controller
     modbus_controller_id: growatt
@@ -158,6 +193,35 @@ number:
     step: 1
     unit_of_measurement: "h"
     entity_category: config
+    on_value:
+      # Les fenetres horaires NE SE PROPAGENT PAS - verifie le 16/09/2026 :
+      # Ond1 est passe a 22-6 et Ond2 est reste a 0-23. Ond1 est donc MAITRE
+      # et recopie sur Ond2 par commande Modbus directe, comme AC1 plus bas.
+      #
+      # La garde est INDISPENSABLE : on_value se declenche a CHAQUE relecture,
+      # pas seulement quand la valeur change. Au demarrage l'etat du n2 est
+      # NaN, la condition renvoie false et la recopie attend un cycle.
+      - if:
+          condition:
+            lambda: |-
+              if (isnan(id(cmp2_h4).state)) return false;
+              return fabs(id(cmp2_h4).state - x) > 0.5f;
+          then:
+            - logger.log:
+                format: "H4 sortie fin : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
+                args: ['x', 'id(cmp2_h4).state']
+                level: INFO
+            - lambda: |-
+                auto *c = id(growatt2);
+                c->queue_command(
+                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
+                    c, 4, (uint16_t) roundf(x)));
+                // Cache mis a jour tout de suite : le capteur Ond2 est en
+                // skip_updates 20, soit une relecture toutes les 10 min. Sans
+                // cela la garde resterait vraie et on reecrirait toutes les
+                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
+                // cette relecture remet la vraie valeur et la recopie repart.
+                id(cmp2_h4).publish_state(x);
 
   - platform: modbus_controller
     modbus_controller_id: growatt
@@ -169,6 +233,35 @@ number:
     step: 1
     unit_of_measurement: "h"
     entity_category: config
+    on_value:
+      # Les fenetres horaires NE SE PROPAGENT PAS - verifie le 16/09/2026 :
+      # Ond1 est passe a 22-6 et Ond2 est reste a 0-23. Ond1 est donc MAITRE
+      # et recopie sur Ond2 par commande Modbus directe, comme AC1 plus bas.
+      #
+      # La garde est INDISPENSABLE : on_value se declenche a CHAQUE relecture,
+      # pas seulement quand la valeur change. Au demarrage l'etat du n2 est
+      # NaN, la condition renvoie false et la recopie attend un cycle.
+      - if:
+          condition:
+            lambda: |-
+              if (isnan(id(cmp2_h5).state)) return false;
+              return fabs(id(cmp2_h5).state - x) > 0.5f;
+          then:
+            - logger.log:
+                format: "H5 charge debut : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
+                args: ['x', 'id(cmp2_h5).state']
+                level: INFO
+            - lambda: |-
+                auto *c = id(growatt2);
+                c->queue_command(
+                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
+                    c, 5, (uint16_t) roundf(x)));
+                // Cache mis a jour tout de suite : le capteur Ond2 est en
+                // skip_updates 20, soit une relecture toutes les 10 min. Sans
+                // cela la garde resterait vraie et on reecrirait toutes les
+                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
+                // cette relecture remet la vraie valeur et la recopie repart.
+                id(cmp2_h5).publish_state(x);
 
   - platform: modbus_controller
     modbus_controller_id: growatt
@@ -180,14 +273,43 @@ number:
     step: 1
     unit_of_measurement: "h"
     entity_category: config
+    on_value:
+      # Les fenetres horaires NE SE PROPAGENT PAS - verifie le 16/09/2026 :
+      # Ond1 est passe a 22-6 et Ond2 est reste a 0-23. Ond1 est donc MAITRE
+      # et recopie sur Ond2 par commande Modbus directe, comme AC1 plus bas.
+      #
+      # La garde est INDISPENSABLE : on_value se declenche a CHAQUE relecture,
+      # pas seulement quand la valeur change. Au demarrage l'etat du n2 est
+      # NaN, la condition renvoie false et la recopie attend un cycle.
+      - if:
+          condition:
+            lambda: |-
+              if (isnan(id(cmp2_h6).state)) return false;
+              return fabs(id(cmp2_h6).state - x) > 0.5f;
+          then:
+            - logger.log:
+                format: "H6 charge fin : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
+                args: ['x', 'id(cmp2_h6).state']
+                level: INFO
+            - lambda: |-
+                auto *c = id(growatt2);
+                c->queue_command(
+                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
+                    c, 6, (uint16_t) roundf(x)));
+                // Cache mis a jour tout de suite : le capteur Ond2 est en
+                // skip_updates 20, soit une relecture toutes les 10 min. Sans
+                // cela la garde resterait vraie et on reecrirait toutes les
+                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
+                // cette relecture remet la vraie valeur et la recopie repart.
+                id(cmp2_h6).publish_state(x);
 
   # ---------------------------------------------------------------------------
   # Prog 11, sous-reglage AC1 = registre 38 : courant de charge depuis le
   # RESEAU. Echelle 1 A, CONFIRMEE par aller-retour. Plage manuel : 0-80 A.
   #
-  # SEUL REGLAGE DONT ON A VERIFIE QU'IL NE SE PROPAGE PAS - chaque unite a
-  # son propre chargeur. L'onduleur 1 est MAITRE et recopie sa valeur sur le
-  # n2. Validee le 23/08/2026.
+  # NE SE PROPAGE PAS - chaque unite a son propre chargeur. L'onduleur 1 est
+  # MAITRE et recopie sa valeur sur le n2. Validee le 23/08/2026. Les fenetres
+  # horaires H3-H6 sont dans le meme cas depuis le 16/09/2026, meme mecanisme.
   #
   # ATTENTION AU CUMUL : le courant recu par la batterie est la SOMME des deux
   #   chargeurs. Regler 40 A donne 80 A dans le pack. Choisir la MOITIE du

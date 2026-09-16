@@ -149,3 +149,26 @@ jamais été non nul et que les deux sources se contredisent ; le premier
 mesurent chaque horloge contre le SNTP au moment de la lecture (positif = en
 avance) ; l'ancien « Écart Ond1-Ond2 » était un artefact d'échantillonnage.
 `Work Time Total` retiré (0,0 h depuis le 13/08, registre non implémenté).
+
+## 16/09/2026 — les fenêtres horaires suivent Ond1
+
+Les quatre fenêtres H3-H6 **ne se propagent pas** d'un onduleur à l'autre.
+Vérifié le matin même : Ond1 passé à 22 h - 6 h depuis Home Assistant, Ond2
+resté à 0 h - 23 h pendant des heures. Elles sont désormais **recopiées par
+l'ESP**, Ond1 maître, sur le modèle d'AC1 — un `on_value` sur chaque `number`
+d'Ond1, une garde qui compare au capteur Ond2 (`cmp2_h3` à `cmp2_h6` dans
+`gw-comparaison-b.yaml`, qui portent un `id` depuis ce jour) et une commande
+Modbus directe vers `growatt2`.
+
+La garde met à jour le cache du capteur Ond2 juste après l'écriture. Sans
+cela elle resterait vraie jusqu'à la relecture suivante — `skip_updates: 20`,
+soit dix minutes — et la recopie repartirait toutes les 30 s. Si l'écriture
+a échoué, cette relecture remet la vraie valeur et la recopie recommence.
+
+Rappel utile du même jour : la fenêtre **autorise**, le SOC **déclenche**. La
+charge réseau de la nuit a démarré à 02:31, quand le SOC est passé sous le
+seuil *Utility Back to Battery* de 95 %, et non à l'ouverture de la fenêtre.
+
+Au passage, les titres H3 à H6 de la vue *Synchronisation* du tableau de bord
+ont été corrigés : ils portaient l'ancienne numérotation, H3 pour la charge et
+H5 pour la sortie. Les entités sous ces titres, elles, étaient les bonnes.

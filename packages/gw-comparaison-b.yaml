@@ -116,10 +116,19 @@ sensor:
   # === Recopies Ond2 des fenetres horaires et du buzzer ====================
   # Ond1 a deja ses entites number et switch. Ordre du document Growatt :
   # H3 Out Start, H4 Out End, H5 Charge Start, H6 Charge End.
+  #
+  # Depuis le 16/09/2026 ces quatre capteurs portent un id, cmp2_h3 a
+  # cmp2_h6 : ils servent de GARDE et de RELECTURE a la recopie automatique
+  # des fenetres, ecrite dans les on_value des number d'Ond1
+  # (gw-ond1-reglages.yaml). Les renommer ou les retirer casserait la
+  # recopie - et poser une SECONDE entite sur ces registres rejouerait
+  # l'incident n.2. Ils restent en lecture seule cote HA : le reglage se
+  # fait sur Ond1, Ond2 suit.
 
   - platform: modbus_controller
     modbus_controller_id: growatt2
     name: "${upper_devicename} Utility Charge Start Hour Setting Ond2"
+    id: cmp2_h5
     register_type: holding
     address: 5
     value_type: U_WORD
@@ -131,6 +140,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: growatt2
     name: "${upper_devicename} Utility Charge End Hour Setting Ond2"
+    id: cmp2_h6
     register_type: holding
     address: 6
     value_type: U_WORD
@@ -142,6 +152,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: growatt2
     name: "${upper_devicename} Utility Out Start Hour Setting Ond2"
+    id: cmp2_h3
     register_type: holding
     address: 3
     value_type: U_WORD
@@ -153,6 +164,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: growatt2
     name: "${upper_devicename} Utility Out End Hour Setting Ond2"
+    id: cmp2_h4
     register_type: holding
     address: 4
     value_type: U_WORD
