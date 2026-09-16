@@ -31,6 +31,12 @@
 #
 # Les capteurs "Active" s'allument si l'un ou l'autre registre est non nul.
 # Les cinq capteurs [BMS] sur les bits de 42 sont conserves tels quels.
+#
+# GARDES NaN posees le 16/09/2026 : avant la premiere lecture Modbus les
+# capteurs valent NaN, et (int) NaN vaut INT32_MAX. Les libelles affichaient
+# alors une fausse liste d'alarmes avec [40=2147483647], et les cinq binaires
+# de bits auraient pu s'allumer, tous les masques ressortant vrais. Les
+# capteurs "Active" comparent des float et n'ont jamais eu le probleme.
 # =============================================================================
 
 text_sensor:
@@ -83,6 +89,14 @@ text_sensor:
   - platform: template
     name: "${upper_devicename} Fault Text Ond1"
     lambda: |-
+      // GARDE NaN - 16/09/2026. Avant la premiere lecture Modbus ces deux
+      // capteurs valent NaN, et (int) NaN vaut INT32_MAX : le libelle
+      // affichait une fausse liste d'alarmes, valeurs brutes a
+      // 2147483647, pendant une trentaine de secondes apres chaque
+      // demarrage de l'ESP. Rendre {} laisse l'entite "inconnue" jusqu'a
+      // la premiere vraie lecture. Les binary_sensor, eux, comparaient le
+      // float et n'ont jamais eu le probleme (NaN > 0 est faux).
+      if (isnan(id(fault_code).state) || isnan(id(warning_code_high).state)) return {};
       int c40 = (int) id(fault_code).state;
       int c42 = (int) id(warning_code_high).state;
       if (c40 == 0 && c42 == 0) return {"OK"};
@@ -118,6 +132,14 @@ text_sensor:
   - platform: template
     name: "${upper_devicename} Warning Text Ond1"
     lambda: |-
+      // GARDE NaN - 16/09/2026. Avant la premiere lecture Modbus ces deux
+      // capteurs valent NaN, et (int) NaN vaut INT32_MAX : le libelle
+      // affichait une fausse liste d'alarmes, valeurs brutes a
+      // 2147483647, pendant une trentaine de secondes apres chaque
+      // demarrage de l'ESP. Rendre {} laisse l'entite "inconnue" jusqu'a
+      // la premiere vraie lecture. Les binary_sensor, eux, comparaient le
+      // float et n'ont jamais eu le probleme (NaN > 0 est faux).
+      if (isnan(id(warning_code).state) || isnan(id(warning_value).state)) return {};
       int c41 = (int) id(warning_code).state;
       int c43 = (int) id(warning_value).state;
       if (c41 == 0 && c43 == 0) return {"OK"};
@@ -183,31 +205,51 @@ binary_sensor:
   # Bit 0x0020 : BmsCell OverVolt - surtension cellule individuelle
   - platform: template
     name: "${upper_devicename} [BMS] Cell Over Voltage Ond1"
-    lambda: return (((int) id(warning_code_high).state) & 0x0020) != 0;
+    lambda: |-
+      // GARDE NaN (16/09/2026) : avant la premiere lecture, (int) NaN vaut
+      // INT32_MAX et TOUS les masques ressortiraient vrais - fausse alarme.
+      if (isnan(id(warning_code_high).state)) return false;
+      return (((int) id(warning_code_high).state) & 0x0020) != 0;
     device_class: problem
 
   # Bit 0x0040 : BmsTotalOverVolt - surtension pack total
   - platform: template
     name: "${upper_devicename} [BMS] Pack Over Voltage Ond1"
-    lambda: return (((int) id(warning_code_high).state) & 0x0040) != 0;
+    lambda: |-
+      // GARDE NaN (16/09/2026) : avant la premiere lecture, (int) NaN vaut
+      // INT32_MAX et TOUS les masques ressortiraient vrais - fausse alarme.
+      if (isnan(id(warning_code_high).state)) return false;
+      return (((int) id(warning_code_high).state) & 0x0040) != 0;
     device_class: problem
 
   # Bit 0x0080 : BmsDischgOverCurr - surintensite decharge
   - platform: template
     name: "${upper_devicename} [BMS] Discharge Over Current Ond1"
-    lambda: return (((int) id(warning_code_high).state) & 0x0080) != 0;
+    lambda: |-
+      // GARDE NaN (16/09/2026) : avant la premiere lecture, (int) NaN vaut
+      // INT32_MAX et TOUS les masques ressortiraient vrais - fausse alarme.
+      if (isnan(id(warning_code_high).state)) return false;
+      return (((int) id(warning_code_high).state) & 0x0080) != 0;
     device_class: problem
 
   # Bit 0x0100 : BmsChgOverCurr - surintensite charge
   - platform: template
     name: "${upper_devicename} [BMS] Charge Over Current Ond1"
-    lambda: return (((int) id(warning_code_high).state) & 0x0100) != 0;
+    lambda: |-
+      // GARDE NaN (16/09/2026) : avant la premiere lecture, (int) NaN vaut
+      // INT32_MAX et TOUS les masques ressortiraient vrais - fausse alarme.
+      if (isnan(id(warning_code_high).state)) return false;
+      return (((int) id(warning_code_high).state) & 0x0100) != 0;
     device_class: problem
 
   # Bit 0x0200 : BmsOverTemp - surchauffe BMS
   - platform: template
     name: "${upper_devicename} [BMS] Over Temperature Ond1"
-    lambda: return (((int) id(warning_code_high).state) & 0x0200) != 0;
+    lambda: |-
+      // GARDE NaN (16/09/2026) : avant la premiere lecture, (int) NaN vaut
+      // INT32_MAX et TOUS les masques ressortiraient vrais - fausse alarme.
+      if (isnan(id(warning_code_high).state)) return false;
+      return (((int) id(warning_code_high).state) & 0x0200) != 0;
     device_class: heat
 
   - platform: template

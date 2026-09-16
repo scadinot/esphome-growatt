@@ -172,3 +172,22 @@ seuil *Utility Back to Battery* de 95 %, et non à l'ouverture de la fenêtre.
 Au passage, les titres H3 à H6 de la vue *Synchronisation* du tableau de bord
 ont été corrigés : ils portaient l'ancienne numérotation, H3 pour la charge et
 H5 pour la sortie. Les entités sous ces titres, elles, étaient les bonnes.
+
+## 16/09/2026 — gardes NaN sur les libellés d'alarme
+
+Au démarrage de l'ESP, avant la première lecture Modbus, les capteurs de
+code valent NaN et `(int) NaN` vaut INT32_MAX. *Fault Text* et *Warning
+Text* affichaient donc une **fausse liste d'alarmes** — tous les bits à un,
+`[40=2147483647 42=2147483647]` — pendant une trentaine de secondes après
+chaque redémarrage, des deux côtés. Vu et daté : 07:45:26 le 16/09.
+
+Les quatre lambdas de libellé rendent maintenant `{}` tant qu'un des deux
+registres est NaN : l'entité reste *inconnue* jusqu'à la première vraie
+lecture. Les cinq binaires `[BMS]` d'Ond1, qui testent des masques de bits,
+ont reçu la même garde : sur INT32_MAX, **tous** les masques ressortaient
+vrais, et ce sont des `device_class: problem`. Les capteurs *Active*, eux,
+comparent des flottants — `NaN > 0` est faux — et n'ont jamais eu le défaut.
+
+Vérifié au flash suivant, `config_hash=0x8ee5002f` à 09:11:48 : au
+redémarrage de 09:12:26, plus aucune fausse liste dans l'historique, les
+libellés passent de *inconnu* à *OK*, et les cinq binaires restent à *off*.

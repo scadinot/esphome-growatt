@@ -22,7 +22,7 @@
 #   non implemente sur l'ES Plus, une trame par cycle pour rien.
 # Defauts et avertissements : quatre registres 40-43 et libelles a double
 #   lecture depuis le 13/09/2026, meme logique que le n1 - encadre en tete de
-#   gw-ond1-libelles.yaml.
+#   gw-ond1-libelles.yaml. Gardes NaN posees le 16/09/2026, meme raison.
 # =============================================================================
 
 sensor:
@@ -436,6 +436,14 @@ text_sensor:
   - platform: template
     name: "${upper_devicename} Fault Text Ond2"
     lambda: |-
+      // GARDE NaN - 16/09/2026. Avant la premiere lecture Modbus ces deux
+      // capteurs valent NaN, et (int) NaN vaut INT32_MAX : le libelle
+      // affichait une fausse liste d'alarmes, valeurs brutes a
+      // 2147483647, pendant une trentaine de secondes apres chaque
+      // demarrage de l'ESP. Rendre {} laisse l'entite "inconnue" jusqu'a
+      // la premiere vraie lecture. Les binary_sensor, eux, comparaient le
+      // float et n'ont jamais eu le probleme (NaN > 0 est faux).
+      if (isnan(id(fault_code_2).state) || isnan(id(warning_code_high_2).state)) return {};
       int c40 = (int) id(fault_code_2).state;
       int c42 = (int) id(warning_code_high_2).state;
       if (c40 == 0 && c42 == 0) return {"OK"};
@@ -471,6 +479,14 @@ text_sensor:
   - platform: template
     name: "${upper_devicename} Warning Text Ond2"
     lambda: |-
+      // GARDE NaN - 16/09/2026. Avant la premiere lecture Modbus ces deux
+      // capteurs valent NaN, et (int) NaN vaut INT32_MAX : le libelle
+      // affichait une fausse liste d'alarmes, valeurs brutes a
+      // 2147483647, pendant une trentaine de secondes apres chaque
+      // demarrage de l'ESP. Rendre {} laisse l'entite "inconnue" jusqu'a
+      // la premiere vraie lecture. Les binary_sensor, eux, comparaient le
+      // float et n'ont jamais eu le probleme (NaN > 0 est faux).
+      if (isnan(id(warning_code_2).state) || isnan(id(warning_value_2).state)) return {};
       int c41 = (int) id(warning_code_2).state;
       int c43 = (int) id(warning_value_2).state;
       if (c41 == 0 && c43 == 0) return {"OK"};
