@@ -8,9 +8,9 @@
 # voulue, ce n'est pas un oubli.
 #
 # RAPPEL DE DIAGNOSTIC : une valeur ecrite qui "revient" apres un cycle a ete
-#   REFUSEE par l'onduleur... sauf si la plage est affamee par un skip_updates
-#   voisin, auquel cas elle revient alors qu'elle a bien ete acceptee - voir
-#   le piege decrit dans growatt.yaml. En cas de doute, comparer avec le LCD.
+#   REFUSEE par l'onduleur. (Jusqu'en 2026.8.2 il y avait une exception, la
+#   plage affamee par un skip_updates voisin - piege n.1 de growatt.yaml,
+#   caduc depuis 2026.9.0.) En cas de doute, comparer avec le LCD.
 #
 # DEUX FAMILLES DE REGLAGES NE SE PROPAGENT PAS, verifie :
 #   AC1 (holding 38), le 23/08/2026 - chaque unite a son propre chargeur.
@@ -176,11 +176,11 @@ number:
                 c->queue_command(
                   esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
                     c, 3, (uint16_t) roundf(x)));
-                // Cache mis a jour tout de suite : le capteur Ond2 est en
-                // skip_updates 20, soit une relecture toutes les 10 min. Sans
-                // cela la garde resterait vraie et on reecrirait toutes les
-                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
-                // cette relecture remet la vraie valeur et la recopie repart.
+                // Cache mis a jour tout de suite, sinon la garde resterait
+                // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
+                // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
+                // on reecrirait une fois de trop. Si l'ecriture a echoue, la
+                // relecture remet la vraie valeur et la recopie repart.
                 id(cmp2_h3).publish_state(x);
 
   - platform: modbus_controller
@@ -216,11 +216,11 @@ number:
                 c->queue_command(
                   esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
                     c, 4, (uint16_t) roundf(x)));
-                // Cache mis a jour tout de suite : le capteur Ond2 est en
-                // skip_updates 20, soit une relecture toutes les 10 min. Sans
-                // cela la garde resterait vraie et on reecrirait toutes les
-                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
-                // cette relecture remet la vraie valeur et la recopie repart.
+                // Cache mis a jour tout de suite, sinon la garde resterait
+                // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
+                // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
+                // on reecrirait une fois de trop. Si l'ecriture a echoue, la
+                // relecture remet la vraie valeur et la recopie repart.
                 id(cmp2_h4).publish_state(x);
 
   - platform: modbus_controller
@@ -256,11 +256,11 @@ number:
                 c->queue_command(
                   esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
                     c, 5, (uint16_t) roundf(x)));
-                // Cache mis a jour tout de suite : le capteur Ond2 est en
-                // skip_updates 20, soit une relecture toutes les 10 min. Sans
-                // cela la garde resterait vraie et on reecrirait toutes les
-                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
-                // cette relecture remet la vraie valeur et la recopie repart.
+                // Cache mis a jour tout de suite, sinon la garde resterait
+                // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
+                // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
+                // on reecrirait une fois de trop. Si l'ecriture a echoue, la
+                // relecture remet la vraie valeur et la recopie repart.
                 id(cmp2_h5).publish_state(x);
 
   - platform: modbus_controller
@@ -296,11 +296,11 @@ number:
                 c->queue_command(
                   esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
                     c, 6, (uint16_t) roundf(x)));
-                // Cache mis a jour tout de suite : le capteur Ond2 est en
-                // skip_updates 20, soit une relecture toutes les 10 min. Sans
-                // cela la garde resterait vraie et on reecrirait toutes les
-                // 30 s jusqu'a la relecture suivante. Si l'ecriture a echoue,
-                // cette relecture remet la vraie valeur et la recopie repart.
+                // Cache mis a jour tout de suite, sinon la garde resterait
+                // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
+                // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
+                // on reecrirait une fois de trop. Si l'ecriture a echoue, la
+                // relecture remet la vraie valeur et la recopie repart.
                 id(cmp2_h6).publish_state(x);
 
   # ---------------------------------------------------------------------------

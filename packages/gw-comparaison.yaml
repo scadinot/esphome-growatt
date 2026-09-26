@@ -77,8 +77,9 @@
 # ECHELLES : H18 et H19 sont lus SANS multiply - ce sont des enumerations.
 #   H35, H36, H37, H82, H95 portent le x10 documente dans growatt.yaml.
 #
-# CADENCE : skip_updates: 20 = relecture toutes les 10 minutes. Assez rapide
-#   pour voir l'effet d'une correction faite sur l'ecran de l'onduleur.
+# CADENCE : relecture a CHAQUE cycle de 30 s depuis le 26/09/2026. Jusque-la
+#   skip_updates: 20 espacait la relecture a 10 minutes ; ESPHome 2026.9.0 a
+#   rendu la cle sans effet et elle a ete retiree - voir le bloc de fin.
 #
 # =============================================================================
 # REGROUPEMENT DES PLAGES - 13/09/2026 : PLUS DE force_new_range ICI
@@ -109,6 +110,37 @@
 #   (82,1) | (94,2) H94-H95   soit 8 trames au lieu de 19
 #   inchangees : (9,3) et (12,3) firmware skip 200, (23,5) serie skip 60,
 #   (38,1) AC1 et (45,6) horloge sans skip.
+#
+# =============================================================================
+# ESPHOME 2026.9.0 - 26/09/2026 : skip_updates SANS EFFET, TOUT EST RETIRE
+# ---------------------------------------------------------------------------
+# Le composant modbus_controller avertit a la compilation : "'skip_updates'
+# no longer has any effect and will be removed in 2027.3.0", et propose a la
+# place un second modbus_controller a la meme adresse avec un update_interval
+# plus lent. force_new_range est deprecie (reuse_previous_range: false le
+# remplace, avec une semantique differente : il n'empeche que de rejoindre
+# la plage PRECEDENTE), register_count est ignore sur les text_sensors.
+#
+# DECISION : retirer skip_updates et force_new_range PARTOUT, sans second
+#   controleur. Le piege n.1 n'existe plus (plus de cadence par plage, donc
+#   plus d'affamement), et sans skip_updates le seul role de force_new_range
+#   - isoler une plage a cadence differente - disparait avec lui. Les plages
+#   se forment maintenant par simple contiguite, y compris H38 avec ses
+#   voisins et le firmware H9-H14 avec H1-H8.
+#
+# MESURE AVANT DE DECIDER (flash 2026.9.0 tel quel, 22:36) : dans
+#   l'historique HA, le bloc Ond2 se termine a :10 dans le cycle et le bloc
+#   Ond1 a :13, premier marqueur a :08 - cycle complet ~6-7 s sur 30, contre
+#   ~5 s en 2026.8.2. Aucun "Duplicate modbus command found" en 95 s de flux
+#   /events au niveau WARN. Le second controleur lent aurait ete une
+#   complexite pour rien.
+#
+# PIEGE DE MESURE, note pour la prochaine fois : le flux /events du
+#   web_server est cadence a ~8 evenements par seconde, ses horodatages ne
+#   mesurent que sa propre file (il montrait 14 s par cycle). Les textes
+#   "RTC Ond1/Ond2" sont des templates a 30 s, pas des lectures. Seul
+#   l'historique HA (last_updated de capteurs Modbus qui changent a chaque
+#   cycle) mesure le bus.
 # =============================================================================
 
 sensor:
@@ -125,7 +157,6 @@ sensor:
     address: 18
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     icon: mdi:sine-wave
     entity_category: diagnostic
 
@@ -141,7 +172,6 @@ sensor:
     address: 19
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     icon: mdi:sine-wave
     entity_category: diagnostic
 
@@ -160,7 +190,6 @@ sensor:
     unit_of_measurement: "V"
     accuracy_decimals: 1
     filters: [multiply: 0.1]
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -172,7 +201,6 @@ sensor:
     unit_of_measurement: "V"
     accuracy_decimals: 1
     filters: [multiply: 0.1]
-    skip_updates: 20
     entity_category: diagnostic
 
   # === RECOPIES OND2 SEULEMENT =============================================
@@ -188,7 +216,6 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 0
     filters: [multiply: 0.1]
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -200,7 +227,6 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 0
     filters: [multiply: 0.1]
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -212,7 +238,6 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 0
     filters: [multiply: 0.1]
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -223,7 +248,6 @@ sensor:
     value_type: U_WORD
     unit_of_measurement: "A"
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   # H1 et H2 cote Ond2 uniquement. Cote Ond1, voir les entites select.
@@ -239,7 +263,6 @@ sensor:
     address: 1
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -251,7 +274,6 @@ sensor:
     address: 2
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
 text_sensor:

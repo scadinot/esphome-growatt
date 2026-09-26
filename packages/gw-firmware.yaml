@@ -42,18 +42,14 @@
 #   suffixe est faite pour ca. Une entite calculee de plus, c'est une entite
 #   de plus a maintenir et une orpheline de plus le jour ou on la retire.
 #
-# LE PIEGE skip_updates - rappel de l'en-tete de growatt.yaml
-#   skip_updates est une propriete de la PLAGE Modbus, pas de l'entite.
-#   ESPHome regroupe les registres voisins en une seule commande, et un item
-#   porteur de skip_updates affamerait alors TOUS ses voisins de plage.
-#   D'ou force_new_range: true sur chacun des quatre capteurs ci-dessous.
-#   C'est exactement ce qui avait gele les selects et les numbers le 22/08.
-#
-# CADENCE : une version de firmware ne change pas toute seule. skip_updates
-#   a 200 fait une relecture toutes les 100 minutes - largement assez pour
-#   voir l'effet d'une mise a jour, et cela retire huit trames par cycle du
-#   budget de scrutation. La premiere lecture, elle, tombe des le demarrage :
-#   les quatre valeurs etaient la 15 secondes apres le reboot.
+# CADENCE : jusqu'au 26/09/2026, skip_updates: 200 relisait ces versions
+#   toutes les 100 minutes, avec force_new_range pour ne pas affamer les
+#   voisins (piege n.1 de growatt.yaml). ESPHome 2026.9.0 a rendu skip_updates
+#   sans effet et deprecie force_new_range : les deux sont retires, ainsi que
+#   register_count, desormais derive de response_size. Les quatre versions
+#   sont donc relues a chaque cycle de 30 s, dans la plage contigue de leurs
+#   voisins H1-H8 - deux trames de plus par onduleur, mesure sans effet
+#   sensible sur le cycle (~6-7 s sur 30).
 # =============================================================================
 
 text_sensor:
@@ -66,11 +62,8 @@ text_sensor:
     id: fw_principal_ond1
     register_type: holding
     address: 9
-    register_count: 3
     response_size: 6
     raw_encode: ANSI
-    skip_updates: 200
-    force_new_range: true
     icon: mdi:chip
     entity_category: diagnostic
 
@@ -80,11 +73,8 @@ text_sensor:
     id: fw_dsp_ond1
     register_type: holding
     address: 12
-    register_count: 3
     response_size: 6
     raw_encode: ANSI
-    skip_updates: 200
-    force_new_range: true
     icon: mdi:chip
     entity_category: diagnostic
 
@@ -96,11 +86,8 @@ text_sensor:
     id: fw_principal_ond2
     register_type: holding
     address: 9
-    register_count: 3
     response_size: 6
     raw_encode: ANSI
-    skip_updates: 200
-    force_new_range: true
     icon: mdi:chip
     entity_category: diagnostic
 
@@ -110,10 +97,7 @@ text_sensor:
     id: fw_dsp_ond2
     register_type: holding
     address: 12
-    register_count: 3
     response_size: 6
     raw_encode: ANSI
-    skip_updates: 200
-    force_new_range: true
     icon: mdi:chip
     entity_category: diagnostic

@@ -28,10 +28,16 @@
 #
 # force_new_range RETIRE des capteurs Ond2 le 13/09/2026 pour qu'ils se
 #   regroupent en plages contigues (H3-H6 avec H1-H2, H18-H20, H94 avec H95)
-#   - explication en tete de gw-comparaison.yaml. Il RESTE sur "Seuil
+#   - explication en tete de gw-comparaison.yaml. Il RESTAIT sur "Seuil
 #   coupure basse V Ond1" : cote Ond1, H95 est un number SANS skip_updates
-#   et lui serait contigu ; sans force_new_range, H94 l'affamerait. C'est
+#   et lui serait contigu ; sans force_new_range, H94 l'affamerait. C'etait
 #   exactement le piege n.1.
+#
+# 26/09/2026, ESPHome 2026.9.0 : skip_updates sans effet, retire de tous les
+#   capteurs de ce fichier, et le force_new_range de H94 Ond1 avec lui - il
+#   n'avait plus rien a isoler. H94 Ond1 rejoint la plage du number H95.
+#   Relecture a chaque cycle de 30 s. Detail en fin d'en-tete de
+#   gw-comparaison.yaml.
 # =============================================================================
 
 sensor:
@@ -50,7 +56,6 @@ sensor:
     address: 39
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     icon: mdi:battery-unknown
     entity_category: diagnostic
 
@@ -68,7 +73,6 @@ sensor:
     address: 8
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   # === Seuil de coupure basse en VOLTS - le pendant du Prog 21 =============
@@ -82,8 +86,6 @@ sensor:
     unit_of_measurement: "V"
     accuracy_decimals: 1
     filters: [multiply: 0.1]
-    skip_updates: 20
-    force_new_range: true
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -95,7 +97,6 @@ sensor:
     unit_of_measurement: "V"
     accuracy_decimals: 1
     filters: [multiply: 0.1]
-    skip_updates: 20
     entity_category: diagnostic
 
   # === Comportement en surcharge ===========================================
@@ -110,7 +111,6 @@ sensor:
     address: 20
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   # === Recopies Ond2 des fenetres horaires et du buzzer ====================
@@ -134,7 +134,6 @@ sensor:
     value_type: U_WORD
     unit_of_measurement: "h"
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -146,7 +145,6 @@ sensor:
     value_type: U_WORD
     unit_of_measurement: "h"
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -158,7 +156,6 @@ sensor:
     value_type: U_WORD
     unit_of_measurement: "h"
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -170,7 +167,6 @@ sensor:
     value_type: U_WORD
     unit_of_measurement: "h"
     accuracy_decimals: 0
-    skip_updates: 20
     entity_category: diagnostic
 
   - platform: modbus_controller
@@ -182,7 +178,6 @@ sensor:
     address: 22
     value_type: U_WORD
     accuracy_decimals: 0
-    skip_updates: 20
     icon: mdi:volume-high
     entity_category: diagnostic
 

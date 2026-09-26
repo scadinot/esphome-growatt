@@ -48,6 +48,12 @@ gw-scan-diff       balayage H0-H99 et diff des deux
 
 ## Deux pièges, à lire avant toute modification
 
+> **Le premier piège est caduc depuis ESPHome 2026.9.0 (26/09/2026).**
+> `skip_updates` n'a plus aucun effet, `force_new_range` est déprécié, et
+> les deux ont été retirés de toute la configuration — voir la section du
+> 26/09 en fin de fichier. Le texte est conservé parce qu'il explique trois
+> incidents datés et parce que le **second** piège, lui, reste vrai.
+
 **`skip_updates` appartient à la PLAGE Modbus, pas à l'entité.** ESPHome
 regroupe les registres voisins en une seule commande ; un item porteur de
 `skip_updates` affame tous ses voisins de plage. `force_new_range: true`
@@ -191,3 +197,46 @@ comparent des flottants — `NaN > 0` est faux — et n'ont jamais eu le défaut
 Vérifié au flash suivant, `config_hash=0x8ee5002f` à 09:11:48 : au
 redémarrage de 09:12:26, plus aucune fausse liste dans l'historique, les
 libellés passent de *inconnu* à *OK*, et les cinq binaires restent à *off*.
+
+## 26/09/2026 — ESPHome 2026.9.0 : fin de `skip_updates`, OTA chiffré
+
+L'add-on est passé en 2026.9.0. À la compilation, `modbus_controller`
+avertit que **`skip_updates` n'a plus aucun effet** (retiré en 2027.3.0),
+que `force_new_range` est déprécié au profit de `reuse_previous_range`, et
+que `register_count` est ignoré sur les text sensors. Le remède proposé par
+ESPHome pour garder des registres lents est un second `modbus_controller` à
+la même adresse avec un `update_interval` plus long.
+
+**Mesure avant de décider.** Growatt a d'abord été flashé tel quel, à 22:36,
+puis le cycle a été mesuré dans l'historique Home Assistant sur des capteurs
+Modbus qui changent à chaque lecture : bloc Ond2 terminé à :10 dans le cycle,
+bloc Ond1 à :13, premier marqueur à :08 — soit **6 à 7 s sur 30**, contre
+5 s en 2026.8.2, et pas un seul « Duplicate modbus command found » en 95 s
+de flux `/events` au niveau WARN. Les 27 entités anciennement lentes (20
+comparaisons Ond2, H94 Ond1, quatre firmwares, deux numéros de série) sont
+relues à chaque cycle avec des valeurs justes.
+
+**Décision : tout retirer, pas de second contrôleur.** Sans cadence par
+plage il n'y a plus d'affamement, donc plus de piège n° 1 ; et sans
+`skip_updates`, `force_new_range` n'avait plus rien à isoler. Trente-deux
+lignes de code sont parties de six fichiers : les `skip_updates`, les
+`force_new_range` (H94 Ond1, H38 Ond2, firmwares, séries), les
+`register_count`. Aucune entité renommée. Les plages se forment par simple
+contiguïté, H38 avec H34-H39, les firmwares H9-H14 avec H1-H8. Flash à
+23:02, `config_hash=0xa6757276` : plus aucun avertissement Modbus, toutes
+les valeurs revenues en six secondes, cycle terminé à :23.
+
+**OTA chiffré.** Le mot de passe OTA coûtait 3,5 Ko de flash et ne servait
+qu'aux flasheurs sans chiffrement ; le repli en clair disparaît en 2027.3.0.
+Remplacé par `encryption:` avec la clé API, sur les huit appareils du
+serveur. Le premier téléversement passe encore en clair, les suivants
+annoncent « Encrypted connection established ». Reste un avertissement, à
+traiter un jour : le point `/update` du `web_server` accepte toujours une
+image en clair.
+
+**Deux pièges de mesure, appris ce soir.** Le flux `/events` du `web_server`
+est cadencé à environ 8 événements par seconde : ses horodatages mesurent sa
+propre file, pas le bus — il faisait croire à un cycle de 14 s. Et les
+capteurs texte *RTC Ond1* / *RTC Ond2* sont des templates à 30 s, pas des
+lectures Modbus : leur horodatage n'indique pas l'instant de lecture, et
+leur gigue de ±3 s est le battement entre les deux minuteries.

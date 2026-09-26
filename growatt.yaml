@@ -126,7 +126,18 @@
 # =============================================================================
 # DEUX PIEGES A CONNAITRE
 # -----------------------------------------------------------------------------
-# 1. skip_updates est une propriete de la PLAGE Modbus, PAS de l'entite.
+# 1. CADUC DEPUIS ESPHOME 2026.9.0 (26/09/2026) : skip_updates N'A PLUS AUCUN
+#    EFFET (retire du composant en 2027.3.0) et force_new_range est deprecie
+#    au profit de reuse_previous_range. Les deux ont ete RETIRES de toute la
+#    configuration ce jour, ainsi que register_count sur les text_sensors
+#    (derive de response_size). Tous les registres sont desormais lus a
+#    chaque cycle de 30 s. Mesure du 26/09 par l'historique HA : cycle
+#    complet en ~6-7 s (bloc Ond2 termine a :10, bloc Ond1 a :13) contre ~5 s
+#    en 2026.8.2, sans un seul "Duplicate modbus command found". Pas besoin
+#    d'un second controleur lent. Le texte ci-dessous est conserve pour
+#    l'histoire : il explique les incidents du 22/08, du 28/08 et du 12/09.
+#
+#    skip_updates est une propriete de la PLAGE Modbus, PAS de l'entite.
 #    ESPHome regroupe les registres voisins en une commande, et un item
 #    porteur de skip_updates affame alors TOUS ceux de sa plage. Vecu le
 #    22/08 : les text_sensors ASCII en skip_updates: 60 gelaient les selects
@@ -234,9 +245,14 @@ api:
   encryption:
     key: !secret api_key
 
+# OTA CHIFFRE depuis le 26/09/2026 (ESPHome 2026.9.0) : le mot de passe
+# coutait 3,5 Ko de flash et ne servait qu'aux flasheurs sans chiffrement.
+# La cle API authentifie le televersement ; le repli en clair disparait en
+# 2027.3.0.
 ota:
   - platform: esphome
-    password: !secret ota_pass
+    encryption:
+      key: !secret api_key
 
 logger:
   level: WARN
@@ -280,6 +296,8 @@ modbus:
   # comportement observe depuis le 22/08. Le document Growatt demande 850 ms
   # entre commandes ; les deux onduleurs acceptent 100 ms sans une erreur
   # dans les captures de logs. Hors specification, en connaissance de cause.
+  # Depuis 2026.9.0 (26/09/2026) il n'y a plus de rafale : tout est lu a
+  # chaque cycle, mesure a ~6-7 s sur 30.
   turnaround_time: 100ms
 
 modbus_controller:
