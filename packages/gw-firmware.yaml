@@ -18,11 +18,24 @@
 #   et coherentes du premier coup.
 #
 # CE QUE LA LECTURE A REVELE
-#   Ond1  firmware 100.06   DSP 101.05
+#   Ond1  firmware 100.06   DSP 101.05   (jusqu'au 29/09/2026)
 #   Ond2  firmware 100.08   DSP 101.07
 #
-#   LES DEUX ONDULEURS N'ONT PAS LE MEME FIRMWARE. Ond2 est deux revisions
-#   en avance, sur les deux processeurs. Deux unites achetees ensemble mais
+#   29/09/2026 : OND1 MIS A JOUR EN 100.08 / 101.07, les deux sont
+#   identiques. La circulation a vide en SBU PERSISTE (Ond1 fournit 113 a
+#   127 W, Ond2 en absorbe 55 a 86 W) : le firmware n'en etait pas la cause.
+#
+#   ATTENTION - UNE MISE A JOUR FIRMWARE REMET LES REGLAGES D'USINE, ET OND2
+#   SUIT (propagation parallele + recopies AC1 et fenetres par l'ESP) :
+#   batterie AGM, sortie SOL, charge CSO, AC1 30 A, seuils 12/13/21 en volts.
+#   Re-regler dans l'ordre : Prog 05 = LI d'abord (les seuils changent
+#   d'unite et reviennent seuls a 50/95/20 %), puis au LCD l'ecran "PrCl"
+#   qui suit "bAtt LI" = L52 (il n'y a plus de Prog 36 en 100.08 ; sans
+#   lui, liaison BMS coupee, bit 0x4000 de input 41), puis UTI, SNU, AC1 et
+#   fenetres. Verifier Prog 23 = PAL au LCD.
+#
+#   JUSQU'AU 29/09, LES DEUX ONDULEURS N'AVAIENT PAS LE MEME FIRMWARE. Ond2
+#   etait deux revisions en avance, sur les deux processeurs. Deux unites achetees ensemble mais
 #   fabriquees a des dates differentes - exactement comme les deux BMS Docan
 #   en V1.0.1 et V1.0.4.
 #
@@ -32,6 +45,7 @@
 #   celui qui fait circuler une centaine de watts d'Ond1 vers Ond2 depuis la
 #   perte du reseau le 26/08. Ce n'est pas une preuve, c'est un mecanisme
 #   plausible la ou il ne devrait y avoir aucune difference.
+#   REFUTE LE 29/09/2026 : firmwares alignes, la boucle est toujours la.
 #
 #   Le partage de charge en parallele suppose un algorithme identique des
 #   deux cotes. A verifier au manuel avant de laisser tourner les deux.

@@ -14,13 +14,14 @@ Ce dépôt est une copie versionnée. Les modifications partent du serveur.
 |---|---|
 | Carte | Waveshare ESP32-S3-ETH |
 | Adresse IP | 192.168.0.70 |
-| Onduleur 1 | adresse Modbus 1, série `KHM8F3X0XD`, firmware 100.06 / DSP 101.05 |
+| Onduleur 1 | adresse Modbus 1, série `KHM8F3X0XD`, firmware 100.08 / DSP 101.07 depuis le 29/09/2026 (100.06 / 101.05 avant) |
 | Onduleur 2 | adresse Modbus 2, série `UYN8G3V04A`, firmware 100.08 / DSP 101.07 |
 | Liaison | RS485 9600 8N1, TX GPIO17 / RX GPIO16 |
-| Firmware ESP | ESPHome **2026.8.2**, flashé le 12/09/2026 |
+| Firmware ESP | ESPHome **2026.9.0**, depuis le 26/09/2026 |
 
-Les deux firmwares **diffèrent** — deux unités achetées ensemble, fabriquées à
-des dates différentes. C'est la seule différence matérielle documentée entre
+Jusqu'au 29/09/2026, les deux firmwares **différaient** — deux unités achetées
+ensemble, fabriquées à des dates différentes. Ils sont alignés depuis, sans
+effet sur la circulation à vide (section du 29/09). C'est la seule différence matérielle documentée entre
 elles, et la piste retenue pour l'écart de régulation de 2,1 V mesuré sorties
 découplées.
 
@@ -240,3 +241,41 @@ propre file, pas le bus — il faisait croire à un cycle de 14 s. Et les
 capteurs texte *RTC Ond1* / *RTC Ond2* sont des templates à 30 s, pas des
 lectures Modbus : leur horodatage n'indique pas l'instant de lecture, et
 leur gigue de ±3 s est le battement entre les deux minuteries.
+
+## 29/09/2026 — Ond1 en 100.08 / 101.07 : réglages d'usine, liaison BMS, essai SBU
+
+Ond1 a été mis à jour en **100.08 / 101.07**, comme Ond2. Le scan
+comparatif ne montre plus que six écarts, les numéros de série et le code
+usine H80.
+
+**La mise à jour a remis les réglages d'usine, et Ond2 a suivi** dans les
+deux minutes, par la propagation du parallèle et par les recopies AC1 et
+fenêtres de l'ESP : batterie AGM, sortie SOL, charge CSO, AC1 à 30 A,
+fenêtre de charge 22 h → 0 h, seuils 12 / 13 / 21 en volts (46 / 54 / 42).
+Le scan, lui, ne voyait rien : les deux machines étaient identiquement mal
+réglées. D'où la règle : après une mise à jour, contrôler les **valeurs**,
+pas l'égalité entre les deux onduleurs.
+
+Restauré depuis Home Assistant dans cet ordre : type de batterie LI d'abord
+(les seuils changent d'unité et sont revenus seuls à 50 / 95 / 20 %), puis
+UTI, SNU, AC1 10 A, fin de fenêtre 6 h. **La liaison CAN avec le BMS restait
+coupée** — courant autorisé 0 A, SOC reçu 0 %, absorption 54,0 V — parce que
+le protocole BMS n'est plus au Prog 36 en 100.08 : c'est l'écran **« PrCl »**
+qui suit « bAtt LI » au Prog 05. Remis à L52 au clavier, tout est revenu :
+110 / 55 A, 57,0 V, SOC 98 %. Prog 23 contrôlé en PAL.
+
+Pendant la coupure, les deux onduleurs ont affiché **input 41 = 16384**
+(bit 0x4000), premier avertissement réel depuis la mise en service. Il est
+tombé avec le retour de la liaison : **0x4000 de 41 = perte de communication
+BMS**. Ajouté au libellé *Warning Text* des deux onduleurs et au binaire
+*[BMS] Communication Error*, resté à *off* pendant toute la coupure car il ne
+testait que les numéros 20 et 33. Même flash : garde NaN sur *Grid
+Available*, qui annonçait une coupure réseau de quelques secondes à chaque
+démarrage de l'ESP.
+
+**Essai SBU à vide, firmwares identiques, sorties couplées en PAL** (19:06 à
+19:11) : Ond1 fournit 113 à 127 W et tire 160 à 171 W de la batterie, Ond2
+absorbe 55 à 86 W et en renvoie 32 à 42 W, en chauffant deux fois plus vite.
+C'est la boucle du 13/09. **Le firmware n'en était pas la cause.** Restent
+une tolérance de partage à très faible charge ou un écart propre à Ond2 ;
+l'essai sous 1 à 2 kW tranchera.

@@ -23,6 +23,7 @@
 # Defauts et avertissements : quatre registres 40-43 et libelles a double
 #   lecture depuis le 13/09/2026, meme logique que le n1 - encadre en tete de
 #   gw-ond1-libelles.yaml. Gardes NaN posees le 16/09/2026, meme raison.
+#   Bit 0x4000 de 41 (perte de communication BMS) ajoute le 29/09/2026.
 # =============================================================================
 
 sensor:
@@ -510,7 +511,10 @@ text_sensor:
         {0x0004, "Over load"}, {0x0008, "EEPROM read fail"},
         {0x0010, "Firmware version unmatch"}, {0x0020, "EEPROM write fail"},
         {0x0040, "BMS warning"}, {0x0080, "Li-battery over load"},
-        {0x0100, "Li-battery aging"}, {0x0200, "Fan lock"}};
+        {0x0100, "Li-battery aging"}, {0x0200, "Fan lock"},
+        // Absent du document : constate le 29/09/2026 sur les deux onduleurs
+        // pendant une perte de la liaison CAN avec le BMS, disparu avec elle.
+        {0x4000, "BMS communication loss"}};
       std::string s;
       for (auto &e : LCD) if (e.c == c41) s = std::string("LCD ") + e.s;
       if (s.empty()) for (auto &e : LCD) if (e.c == c43) s = std::string("LCD ") + e.s;

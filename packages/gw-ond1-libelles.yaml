@@ -37,6 +37,14 @@
 # alors une fausse liste d'alarmes avec [40=2147483647], et les cinq binaires
 # de bits auraient pu s'allumer, tous les masques ressortant vrais. Les
 # capteurs "Active" comparent des float et n'ont jamais eu le probleme.
+#
+# PREMIER EVENEMENT REEL le 29/09/2026 : apres la mise a jour d'Ond1 en
+# 100.08, le protocole BMS (ecran PrCl du Prog 05) ne correspondait plus au
+# PYLON12 du BMS. Les deux onduleurs ont affiche input 41 = 16384 (0x4000),
+# 43 = 0, pendant toute la coupure de la liaison CAN, et le bit est tombe
+# des que PrCl a ete remis a L52. 0x4000 de 41 = perte de communication BMS.
+# Il est ajoute a la table de bits et au capteur [BMS] Communication Error,
+# qui etait reste OFF. Le reste du decodage n'est toujours pas fige.
 # =============================================================================
 
 text_sensor:
@@ -164,7 +172,10 @@ text_sensor:
         {0x0004, "Over load"}, {0x0008, "EEPROM read fail"},
         {0x0010, "Firmware version unmatch"}, {0x0020, "EEPROM write fail"},
         {0x0040, "BMS warning"}, {0x0080, "Li-battery over load"},
-        {0x0100, "Li-battery aging"}, {0x0200, "Fan lock"}};
+        {0x0100, "Li-battery aging"}, {0x0200, "Fan lock"},
+        // Absent du document : constate le 29/09/2026 sur les deux onduleurs
+        // pendant une perte de la liaison CAN avec le BMS, disparu avec elle.
+        {0x4000, "BMS communication loss"}};
       std::string s;
       for (auto &e : LCD) if (e.c == c41) s = std::string("LCD ") + e.s;
       if (s.empty()) for (auto &e : LCD) if (e.c == c43) s = std::string("LCD ") + e.s;
@@ -190,14 +201,20 @@ binary_sensor:
     lambda: return id(warning_code).state > 0 || id(warning_value).state > 0;
     device_class: problem
 
-  # Numeros LCD 20 et 33 sur 41 ou 43. Le bit 0x0010 de 40 ("BMS
-  # communication fault" du document) n'est PAS teste ici : sur un numero
-  # LCD, 0x0010 est vrai pour 16-31, 48-63... - faux positifs garantis.
+  # Numeros LCD 20 et 33 sur 41 ou 43, et depuis le 29/09/2026 le bit 0x4000
+  # de 41 : c'est lui, et lui seul, qui s'est allume pendant la perte de la
+  # liaison CAN apres la mise a jour firmware - ce capteur etait reste OFF.
+  # Le bit 0x0010 de 40 ("BMS communication fault" du document) n'est PAS
+  # teste : sur un numero LCD, 0x0010 est vrai pour 16-31, 48-63... - faux
+  # positifs garantis. 0x4000 n'a pas ce defaut, aucun numero LCD n'atteint
+  # 16384. La garde NaN est devenue necessaire avec lui : (int) NaN vaut
+  # INT32_MAX, dont le bit 0x4000 est a un.
   - platform: template
     name: "${upper_devicename} [BMS] Communication Error Ond1"
     lambda: |-
+      if (isnan(id(warning_code).state) || isnan(id(warning_value).state)) return false;
       int a = (int) id(warning_code).state, b = (int) id(warning_value).state;
-      return a == 20 || a == 33 || b == 20 || b == 33;
+      return a == 20 || a == 33 || b == 20 || b == 33 || (a & 0x4000) != 0;
     device_class: problem
 
   # Bit 0x0020 : BmsCell OverVolt - surtension cellule individuelle
@@ -268,7 +285,12 @@ binary_sensor:
       int status = (int) id(system_status).state;
       return (status == 2 || status == 12);
 
+  # GARDE NaN (29/09/2026) : avant la premiere lecture, NaN > 180 est faux et
+  # le capteur annoncait une coupure reseau de 3 a 8 s a chaque demarrage de
+  # l'ESP. Rendre {} ne publie rien tant que la tension n'est pas lue.
   - platform: template
     name: "${upper_devicename} Grid Available Ond1"
-    lambda: return id(grid_voltage).state > 180;
+    lambda: |-
+      if (isnan(id(grid_voltage).state)) return {};
+      return id(grid_voltage).state > 180;
     device_class: power
