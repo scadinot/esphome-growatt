@@ -279,3 +279,59 @@ absorbe 55 à 86 W et en renvoie 32 à 42 W, en chauffant deux fois plus vite.
 C'est la boucle du 13/09. **Le firmware n'en était pas la cause.** Restent
 une tolérance de partage à très faible charge ou un écart propre à Ond2 ;
 l'essai sous 1 à 2 kW tranchera.
+
+## 03/10/2026 — essais sous charge : le parallèle fonctionne, à 55 / 45
+
+L'essai qui manquait depuis le 13/09. Charges branchées derrière les
+disjoncteurs de sortie, batteries à 83 %, tout relevé dans l'historique HA
+(`AC Discharge Power`, signé, là où `Output Power` reste bloqué à 0 quand un
+onduleur absorbe).
+
+**Sorties couplées, sur batterie, paliers stables :**
+
+| Charge | Ond1 | Ond2 | Écart | Part d'Ond1 |
+|---|---|---|---|---|
+| à vide | +90 W | −85 W | 175 W | — |
+| 860 W | 488 W | 370 W | 118 W | 57 % |
+| 1 025 W | 585 W | 440 W | 145 W | 57 % |
+| 1 410 W | 770 W | 640 W | 130 W | 55 % |
+| 2 225 W | 1 215 W | 1 010 W | 205 W | 54,6 % |
+| 2 680 W | 1 450 W | 1 215 W | 235 W | 54,5 % |
+
+Vérifié à la pince sur le palier de 2 225 W : 10,4 A sur le disjoncteur de
+sortie commun, 5,7 A sur la sortie d'Ond1, 4,7 A sur celle d'Ond2
+(54,8 / 45,2 %), quand les onduleurs lisaient 5,5 et 4,5 A. Les capteurs de
+courant sont justes à 4 % près, par défaut.
+
+**Conclusion : le partage fonctionne.** Ond1 fournit en permanence 150 à
+200 W de plus qu'Ond2, avec une petite part proportionnelle. À charge nulle,
+ce même décalage donne +90 / −85 W : c'est toute la « boucle à vide » des
+essais du 13/09, du 29/09 et du 30/09. Ni le câble parallèle ni le firmware
+ne sont en cause ; c'est un écart de calibration entre les deux machines
+(Ond2 régule aussi ~1 V plus bas et annonce 11 W de décharge batterie quand
+les BMS lisent 0,0 A). Coût : une cinquantaine de watts à vide sur batterie.
+Diagnostic clos, à ne pas rouvrir.
+
+**Sorties découplées en PAL, un seul onduleur chargé — à ne pas refaire.**
+Ond1 tient 230 V dans tous les cas, c'est la référence. Ond2 s'ajuste, et
+sans liaison entre les sorties il corrige dans le vide :
+
+| Situation | Tension Ond1 | Tension Ond2 |
+|---|---|---|
+| tout à vide | 230 V | 228 V |
+| 0,9 à 2,1 kW sur Ond1 seul | 230 V | 239 à 247 V |
+| 1,76 kW sur Ond2 seul | 230 V | 211 V |
+
+C'est la preuve que la consigne de partage passe par le câble, et la raison
+de ne jamais charger un seul onduleur dans cette configuration : la sortie
+d'Ond2 sort de la plage normale.
+
+**Le retour sur batterie a un seuil.** Repassés en UTI pour refermer le
+couplage (les deux sorties sont alors le réseau, même tension, même phase),
+les onduleurs ne sont pas revenus sur batterie en SBU : à 83 %, on est sous
+le seuil 13 (95 %). Il a fallu couper l'arrivée EDF. À retenir pour tout
+essai SBU en dessous de 95 %.
+
+Le synoptique de Home Assistant (`custom:ems-synoptique-card`, vue
+*Synoptique*) a suivi tous ces états ; il ne dessine pas encore le flux
+inversé d'un onduleur qui absorbe.
