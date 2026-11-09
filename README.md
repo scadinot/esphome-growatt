@@ -17,19 +17,22 @@ Ce dépôt est une copie versionnée. Les modifications partent du serveur.
 | Onduleur 1 | adresse Modbus 1, série `KHM8F3X0XD`, firmware 100.08 / DSP 101.07 depuis le 29/09/2026 (100.06 / 101.05 avant) |
 | Onduleur 2 | adresse Modbus 2, série `UYN8G3V04A`, firmware 100.08 / DSP 101.07 |
 | Liaison | RS485 9600 8N1, TX GPIO17 / RX GPIO16 |
-| Firmware ESP | ESPHome **2026.9.0**, depuis le 26/09/2026 |
+| Firmware ESP | ESPHome **2026.10.1**, depuis le 28/10/2026 |
 
 Jusqu'au 29/09/2026, les deux firmwares **différaient** — deux unités achetées
 ensemble, fabriquées à des dates différentes. Ils sont alignés depuis, sans
-effet sur la circulation à vide (section du 29/09). C'est la seule différence matérielle documentée entre
-elles, et la piste retenue pour l'écart de régulation de 2,1 V mesuré sorties
-découplées.
+effet sur la circulation à vide (section du 29/09). Cette différence a
+longtemps été la piste retenue pour l'écart de régulation de 2,1 V mesuré
+sorties découplées : **réfutée le 29/09**, et les essais sous charge du 03/10
+ont montré un simple écart de calibration entre les deux machines (section du
+03/10).
 
 ## Organisation
 
-Treize paquets dans `packages/`. Le découpage date du 23/08/2026 : le fichier
-monolithique avait atteint 86 000 caractères et n'était plus réécrivable d'un
-bloc par l'outillage.
+Seize paquets dans `packages/`, dont quatorze inclus par `growatt.yaml` ; les
+deux outils de balayage restent hors compilation. Le découpage date du
+23/08/2026 : le fichier monolithique avait atteint 86 000 caractères et
+n'était plus réécrivable d'un bloc par l'outillage.
 
 ```
 gw-ond1-mesures    capteurs Ond1
@@ -44,7 +47,10 @@ gw-pv-off          PV et générateur, commentés en attente de raccordement
 gw-firmware        versions firmware des deux onduleurs
 gw-comparaison     réglages comparés Ond1 / Ond2
 gw-comparaison-b   complément : H39, H8, H94, H20, H3-H6, H22
-gw-scan-diff       balayage H0-H99 et diff des deux
+gw-scan-diff       balayage H0-H98 et diff des deux
+gw-bms-can         données BMS par CAN : compte rendu, aucune entité
+gw-scan-ond2       test de lecture par blocs (NON inclus)
+gw-scan-input      balayage input 90-3299 (NON inclus)
 ```
 
 ## Deux pièges, à lire avant toute modification
@@ -85,7 +91,8 @@ c'est une saturation — allonger l'intervalle. Une ligne isolée après une
 
 ## Ce qui n'est pas ici
 
-`secrets.yaml` — WiFi, clé d'API, mot de passe OTA. Il vit uniquement sur le
+`secrets.yaml` — WiFi et clé d'API, qui chiffre aussi l'OTA depuis le
+26/09/2026 (il n'y a plus de mot de passe OTA). Il vit uniquement sur le
 serveur, et `.gitignore` en interdit l'ajout. Sans lui, cette configuration ne
 compile pas telle quelle.
 
@@ -231,9 +238,12 @@ les valeurs revenues en six secondes, cycle terminé à :23.
 qu'aux flasheurs sans chiffrement ; le repli en clair disparaît en 2027.3.0.
 Remplacé par `encryption:` avec la clé API, sur les huit appareils du
 serveur. Le premier téléversement passe encore en clair, les suivants
-annoncent « Encrypted connection established ». Reste un avertissement, à
-traiter un jour : le point `/update` du `web_server` accepte toujours une
-image en clair.
+annoncent « Encrypted connection established ». Reste un avertissement : le
+point `/update` du `web_server` accepte toujours une image en clair.
+**Décidé le 30/09/2026, on le laisse** : c'est `captive_portal` qui ajoute ce
+point, pas le `web_server` (`ota: false` y est sans effet, testé le 27/09).
+Le portail captif est gardé pour la page de secours WiFi, l'avertissement de
+compilation est accepté.
 
 **Deux pièges de mesure, appris ce soir.** Le flux `/events` du `web_server`
 est cadencé à environ 8 événements par seconde : ses horodatages mesurent sa
@@ -335,3 +345,22 @@ essai SBU en dessous de 95 %.
 Le synoptique de Home Assistant (`custom:ems-synoptique-card`, vue
 *Synoptique*) a suivi tous ces états ; il ne dessine pas encore le flux
 inversé d'un onduleur qui absorbe.
+
+## 07/10 au 28/10/2026 — trois recompilations, échéance 2027.3.0
+
+Trois recompilations sans modification de configuration, serveur et dépôt
+identiques :
+
+- **07/10/2026**, ESPHome 2026.9.1 : aucun avertissement nouveau, coupure de
+  37 s.
+- **23/10/2026**, ESPHome 2026.10.0 (ESP-IDF 5.5.6) : un seul avertissement
+  nouveau, `ModbusCommandItem` et `queue_command` sont dépréciés dans les
+  lambdas et **retirés en 2027.3.0**.
+- **28/10/2026**, ESPHome 2026.10.1 : rien de nouveau, coupure de 5 s.
+
+Lambdas concernées : la recopie des fenêtres H3-H6 et d'AC1 vers Ond2
+(`gw-ond1-reglages`), la mise à l'heure (`gw-horloge-set`) et le scan
+comparatif (`gw-scan-diff`), plus les deux outils non inclus. **À migrer avant
+2027.3.0.** Le piège à éviter : côté Ond2, H3-H6 et H38 sont déjà lus par des
+capteurs (`cmp2_h3` à `cmp2_h6`, `ac1_reglage_ond2`) ; y poser un `number`
+pour écrire ferait lire deux fois le même registre — le piège n° 2.

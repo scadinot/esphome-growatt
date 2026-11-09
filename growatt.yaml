@@ -185,9 +185,17 @@
 #           gw-scan-diff.yaml. Absorption et floating tous deux a 57,0 V sur
 #           les deux machines : a verifier a la prochaine charge complete,
 #           c'est exactement le seuil de protection haute des BMS.
+#           SUITE : 57,0 V est la consigne CV envoyee par le BMS en LI -
+#           H35/H36 retombent a 54,0 V quand la liaison CAN est coupee
+#           (29/09/2026). Tenue a 57 V presque chaque nuit du 24/10 au 04/11,
+#           cellule max 3,569 V pour une alarme a 3,58 V, aucune alarme ;
+#           cessee seule depuis.
 #
-# FENETRE DE CHARGE RESEAU : laissee OUVERTE 0h-23h pour atteindre les 100 %.
-#   A REFERMER sur les heures creuses. Une fenetre fermee arrete l'apport
+# FENETRE DE CHARGE RESEAU : 22h -> 6h depuis le 16/09/2026, reglee sur Ond1
+#   et recopiee sur Ond2 par l'ESP. La fin est INCLUSIVE : "6" autorise la
+#   charge jusqu'a 06:59 (mesure du 24/10/2026). Chaque onduleur l'evalue sur
+#   SA propre horloge, sans heure d'ete : remettre les deux a l'heure fin mars
+#   et fin octobre (gw-horloge-set.yaml). Une fenetre fermee arrete l'apport
 #   reseau SANS aucune alarme - le statut affiche simplement "Bypass".
 # =============================================================================
 

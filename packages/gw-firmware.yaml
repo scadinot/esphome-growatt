@@ -48,7 +48,9 @@
 #   REFUTE LE 29/09/2026 : firmwares alignes, la boucle est toujours la.
 #
 #   Le partage de charge en parallele suppose un algorithme identique des
-#   deux cotes. A verifier au manuel avant de laisser tourner les deux.
+#   deux cotes. VERIFIE SOUS CHARGE le 03/10/2026 : le partage fonctionne,
+#   55 / 45 de 0,9 a 2,7 kW, confirme a la pince (5,7 / 4,7 A). Detail dans
+#   le README.
 #
 # PAS D'ENTITE DE COMPARAISON : elle a existe ("Firmware Ecart Ond1-Ond2",
 #   retiree le 27/08 a la demande) et n'apportait rien - les quatre lectures

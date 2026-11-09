@@ -139,7 +139,8 @@ select:
 # la fenetre se terminait a 10 h.
 #
 # Chaque onduleur evalue ces fenetres contre SA PROPRE horloge : surveiller
-# "RTC Ecart Ond1-Ond2" dans packages/gw-horloges.yaml.
+# "RTC Derive Ond1" et "RTC Derive Ond2" dans packages/gw-horloges.yaml.
+# "RTC Ecart Ond1-Ond2" n'est qu'un artefact d'echantillonnage.
 # =============================================================================
 number:
 
