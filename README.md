@@ -395,8 +395,8 @@ Ce qui change, par fichier :
 - **Partout** : l'adresse de l'esclave vient de `id(growattX)->device_address()`.
   Chaque action déclare un `on_no_response` qui rend `false`, car le
   comportement par défaut n'est pas documenté.
-- **Non migrés** : `gw-scan-ond2` et `gw-scan-input`, qui ne sont pas inclus.
-  Ils sont à porter avant de les réinclure.
+- **Outils non inclus**, portés le même jour (voir plus bas) :
+  `gw-scan-ond2` et `gw-scan-input`.
 
 Vérifications :
 
@@ -410,8 +410,8 @@ Vérifications :
 - **Scan comparatif** : avant le flash (09:37) et après (09:44), 99 / 99 et
   les mêmes 7 écarts. Ce sont H23-H27 (numéros de série), H34 (valeur
   dynamique) et H80 (code usine). H9-H14 ne sortent plus depuis l'alignement
-  des firmwares du 29/09. L'en-tête de `gw-scan-diff`, qui en fait des témoins
-  de bon fonctionnement, est périmé sur ce point.
+  des firmwares du 29/09. L'en-tête de `gw-scan-diff` est corrigé : les
+  témoins de bon fonctionnement sont désormais H23-H27 et H80.
 - **Mise à l'heure** :
 
   | | Dérive avant | Dérive après |
@@ -423,3 +423,20 @@ Vérifications :
 - **AC1** : Ond1 passé de 15 à 16 A puis remis à 15 A. Ond2 suit en 5 s à
   l'aller et en 19 s au retour. Ond1 a relu une fois l'ancienne valeur, 2 s
   après l'écriture (lecture déjà en file), sans écriture parasite vers Ond2.
+
+Les deux outils non inclus sont portés le même jour, sur le même modèle :
+
+- **`gw-scan-ond2`** : les neuf tests T1-T9 deviennent neuf
+  `read_holding_registers` ou `read_input_registers`, chacun avec son adresse
+  écrite en dur et 6 s d'écart. Chaque test trace maintenant lui-même sa
+  réponse (en mots, et non plus en octets), son exception ou sa non-réponse.
+- **`gw-scan-input`** : l'ancien code empilait 20 lectures par lambda, le
+  schéma qui avait vidé la file le 28/08. Une boucle `repeat` de 136 tours
+  envoie désormais un bloc, attend son issue (le hub en garantit une par
+  requête), puis passe au suivant. Sans issue au bout de 15 s, le balayage
+  s'arrête, plutôt que d'attribuer une réponse tardive au mauvais bloc.
+
+Vérification : `esphome config` passe avec les deux outils inclus dans une
+copie locale. La configuration entière, avec ces deux outils, compile aussi
+en local (ESP-IDF 5.5.6), sans aucun avertissement de dépréciation. Ils
+restent hors de `growatt.yaml` et n'ont pas été exécutés.

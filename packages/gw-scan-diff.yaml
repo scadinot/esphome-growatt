@@ -61,11 +61,14 @@
 #   nul et non avenu.
 #
 # TEMOINS DE BON FONCTIONNEMENT
-#   H9 a H14 (firmware) et H23 a H27 (serie) DOIVENT figurer dans les ecarts.
+#   H23 a H27 (serie) et H80 (code usine) DOIVENT figurer dans les ecarts.
 #   S'ils n'y sont pas, le balayage a echoue, quels que soient les compteurs.
+#   H9 a H14 (firmware) n'en sont PLUS : les deux onduleurs sont en
+#   100.08 / 101.07 depuis le 29/09/2026, ces registres sont egaux.
 #
 # ECARTS ATTENDUS, SANS SIGNIFICATION
-#   H9-H14, H23-H27 ... firmware et serie, cf. ci-dessus.
+#   H23-H27 .......... serie, cf. ci-dessus. (H9-H14, firmware, jusqu'au
+#                      29/09/2026.)
 #   H34 .............. courant de charge max : valeur DYNAMIQUE imposee par
 #                      le BMS en mode lithium. A affiche 100, 280 puis 400
 #                      cote Ond1 selon les jours, 55 cote Ond2 - et 0 sur
@@ -85,6 +88,10 @@
 #   les entites de comparaison ne pouvaient donner que sur la carte connue.
 #   L'ecart de 2,1 V entre les sorties decouplees n'a donc aucun reglage
 #   pour cause : il ne reste que le DSP (101.05 contre 101.07).
+#
+# BALAYAGES DU 09/11/2026, avant et apres le portage sur modbus_client
+#   Ond1 = 99, Ond2 = 99, SEPT ecarts, identiques aux deux passages :
+#   H23 a H27 (serie), H34 = 240/100 (dynamique), H80 (code usine).
 #
 # PORTE SUR ESPHOME 2026.8.2 le 12/09/2026 : handler en std::span,
 #   enumeration modbus::EntityType. Reecrit le 13/09/2026 pour la lecture

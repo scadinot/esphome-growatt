@@ -20,11 +20,14 @@
 #      de taille de bloc plus basse, ou un refus de H0.
 #
 # LE TEST : neuf lectures UNE PAR UNE, espacees de 6 s, chacune
-#   tracee AVANT l'envoi ("Tn envoye") et A LA REPONSE ("Tn ... octets" +
-#   les quatre premiers mots). Un bloc refuse par exception sort par le
-#   composant en "Modbus error ... exception N" ; un bloc sans reponse ne
-#   produit rien d'autre que "Modbus device=2 set offline" apres relances,
-#   puis "back online" au cycle suivant. Chaque test est ainsi attribuable.
+#   tracee AVANT l'envoi ("Tn envoye") et A LA REPONSE ("Tn reponse : N
+#   mots" + les quatre premiers mots). Depuis le portage sur modbus_client
+#   (09/11/2026, ModbusCommandItem retire en 2027.3.0), chaque test trace
+#   aussi lui-meme son exception ("Tn : exception 0xNN"), sa non-reponse
+#   ("Tn : pas de reponse", sans relance) ou son retrait de la file. Une
+#   non-reponse ne met plus le controleur hors ligne. Avant le portage, la
+#   reponse etait comptee en octets (2 par mot) : les resultats du 13/09
+#   ci-dessous sont en octets.
 #
 #   T1  holding          20 x10  bloc de 10 tout defini (H20-H29)
 #   T2  holding           0 x9   bloc de 9 aligne sur 45, avec H0
@@ -61,140 +64,221 @@ script:
   - id: test_blocs_ond2
     mode: single
     then:
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, 20, 10,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T1 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T1 envoye : holding 20 x10");
+      - lambda: 'ESP_LOGW("t2", "T1 envoye : holding 20 x10");'
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 20
+          count: 10
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T1 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T1 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T1 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T1 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, 0, 9,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T2 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T2 envoye : holding 0 x9");
+      - lambda: 'ESP_LOGW("t2", "T2 envoye : holding 0 x9");'
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 0
+          count: 9
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T2 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T2 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T2 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T2 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, 0, 10,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T3 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T3 envoye : holding 0 x10");
+      - lambda: 'ESP_LOGW("t2", "T3 envoye : holding 0 x10");'
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 0
+          count: 10
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T3 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T3 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T3 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T3 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, 40, 10,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T4 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T4 envoye : holding 40 x10");
+      - lambda: 'ESP_LOGW("t2", "T4 envoye : holding 40 x10");'
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 40
+          count: 10
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T4 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T4 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T4 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T4 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, 45, 9,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T5 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T5 envoye : holding 45 x9");
+      - lambda: 'ESP_LOGW("t2", "T5 envoye : holding 45 x9");'
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 45
+          count: 9
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T5 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T5 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T5 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T5 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::INPUT_REGISTER, 108, 45,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T6 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T6 envoye : input_register 108 x45");
+      - lambda: 'ESP_LOGW("t2", "T6 envoye : input_register 108 x45");'
+      - modbus_client.read_input_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 108
+          count: 45
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T6 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T6 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T6 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T6 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::INPUT_REGISTER, 153, 45,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T7 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T7 envoye : input_register 153 x45");
+      - lambda: 'ESP_LOGW("t2", "T7 envoye : input_register 153 x45");'
+      - modbus_client.read_input_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 153
+          count: 45
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T7 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T7 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T7 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T7 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, 0, 20,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T8 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T8 envoye : holding 0 x20");
+      - lambda: 'ESP_LOGW("t2", "T8 envoye : holding 0 x20");'
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 0
+          count: 20
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T8 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T8 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T8 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T8 : retiree de la file avant envoi");'
       - delay: 6s
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, 0, 45,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[160];
-                int n = snprintf(buf, sizeof(buf), "T9 reponse : %u octets, mots", (unsigned) data.size());
-                for (size_t i = 0; i + 1 < data.size() && i < 8; i += 2)
-                  n += snprintf(buf + n, sizeof(buf) - n, " %u", (data[i] << 8) | data[i + 1]);
-                ESP_LOGW("t2", "%s", buf);
-              }));
-          ESP_LOGW("t2", "T9 envoye : holding 0 x45");
+      - lambda: 'ESP_LOGW("t2", "T9 envoye : holding 0 x45");'
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 0
+          count: 45
+          on_response:
+            then:
+              - lambda: |-
+                  char buf[160];
+                  int n = snprintf(buf, sizeof(buf), "T9 reponse : %u mots, debut", (unsigned) values.size());
+                  for (size_t i = 0; i < values.size() && i < 4; i++)
+                    n += snprintf(buf + n, sizeof(buf) - n, " %u", values[i]);
+                  ESP_LOGW("t2", "%s", buf);
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T9 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("t2", "T9 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("t2", "T9 : retiree de la file avant envoi");'
       - delay: 6s
       - lambda: |-
           ESP_LOGW("t2", "Fin des tests Ond2");

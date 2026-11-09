@@ -17,13 +17,25 @@
 #   cellules et fixe le debut du bloc.
 #
 # COMMENT
-#   Bouton "Scan input Ond1" : 136 blocs de 9 registres, 7 lambdas
-#   espacees de 12 s pour ne pas saturer la file du hub. Chaque bloc
-#   contenant au moins une valeur non nulle sort une ligne WARN "scanin"
-#   avec ses registres non nuls ; les blocs a zero sont muets ; un registre
-#   inexistant sort en "Modbus error ... exception 2" par le composant
-#   lui-meme. Lire dans le flux /events de l'ESP (curl -sN http://ip/events)
-#   ou dans les logs du tableau de bord ESPHome. Duree : ~84 s.
+#   Bouton "Scan input Ond1" : 136 blocs de 9 registres, UNE LECTURE A LA
+#   FOIS. Chaque bloc contenant au moins une valeur non nulle sort une ligne
+#   WARN "scanin" avec ses registres non nuls ; les blocs a zero sont
+#   muets ; un registre inexistant sort en "Ixxx x9 : exception 0x02". Lire
+#   dans le flux /events de l'ESP (curl -sN http://ip/events) ou dans les
+#   logs du tableau de bord ESPHome. Duree : une a deux minutes, selon la
+#   place laissee par la scrutation des controleurs.
+#
+# PORTE SUR modbus_client.read_input_registers le 09/11/2026
+#   (ModbusCommandItem et queue_command retires en 2027.3.0). Avant, chaque
+#   lambda EMPILAIT 20 lectures d'un coup : c'est le schema qui avait vide
+#   la file du scan comparatif le 28/08. Desormais une boucle `repeat`
+#   envoie un bloc, ATTEND son issue (reponse, exception, non-reponse ou
+#   retrait de la file - le hub en garantit exactement une par requete
+#   acceptee), puis passe au suivant. Le gestionnaire on_response ne donne
+#   que `values`, pas l'adresse : elle est tenue dans scanin_debut, juste
+#   parce qu'une seule lecture est en vol. Si aucune issue n'arrive en 15 s,
+#   le balayage s'arrete plutot que de risquer d'attribuer une reponse
+#   tardive au bloc suivant.
 #
 #   Blocs de 9 alignes sur des multiples de 9 : jamais a cheval sur un
 #   multiple de 45, la limite que le document impose aux lectures.
@@ -36,173 +48,99 @@
 #   (firmware, serie, reglages, horloge), le reste est vide ou residuel.
 #   Compte rendu complet et decodage dans packages/gw-bms-can.yaml.
 #   Le fichier reste ici, pret a etre re-inclus pour balayer 83-89,
-#   1000-2999 ou au-dela de 3300 - il suffit de changer PLAGES dans le
-#   script generateur, ou les tableaux debuts[] a la main.
+#   1000-2999 ou au-dela de 3300 - il suffit de changer le calcul de
+#   scanin_debut et le count du repeat dans le script ci-dessous.
 # =============================================================================
+
+globals:
+  - id: scanin_debut
+    type: int
+    restore_value: no
+    initial_value: '-1'
+
+  - id: scanin_attente
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: scanin_arret
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+  - id: scanin_echecs
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 script:
 
+  # Blocs : 90 a 999 (102 blocs) puis 3000 a 3297 (34 blocs), pas de 9.
   - id: scan_input
     mode: single
     then:
       - lambda: |-
+          id(scanin_echecs) = 0;
+          id(scanin_arret) = false;
           ESP_LOGW("scanin", "Debut du balayage input Ond1, 136 blocs de 9");
+      - repeat:
+          count: 136
+          then:
+            - if:
+                condition:
+                  lambda: 'return !id(scanin_arret);'
+                then:
+                  - lambda: |-
+                      id(scanin_debut) = iteration < 102 ? 90 + 9 * (int) iteration
+                                                         : 3000 + 9 * ((int) iteration - 102);
+                      id(scanin_attente) = true;
+                  - modbus_client.read_input_registers:
+                      modbus_id: modbus_growatt
+                      address: !lambda 'return id(growatt)->device_address();'
+                      start_address: !lambda 'return (uint16_t) id(scanin_debut);'
+                      count: 9
+                      on_response:
+                        then:
+                          - lambda: |-
+                              char buf[200];
+                              int n = 0;
+                              for (size_t i = 0; i < values.size() && i < 9; i++) {
+                                if (values[i] != 0 && n < 170)
+                                  n += snprintf(buf + n, sizeof(buf) - n, " I%d=%u",
+                                                id(scanin_debut) + (int) i, values[i]);
+                              }
+                              if (n > 0) ESP_LOGW("scanin", "%s", buf);
+                              id(scanin_attente) = false;
+                      on_error:
+                        then:
+                          - lambda: |-
+                              ESP_LOGW("scanin", "I%d x9 : exception 0x%02X", id(scanin_debut), (uint8_t) exception_code);
+                              id(scanin_attente) = false;
+                      on_no_response: !lambda |-
+                        ESP_LOGW("scanin", "I%d x9 : pas de reponse", id(scanin_debut));
+                        id(scanin_echecs)++;
+                        id(scanin_attente) = false;
+                        return false;
+                      on_not_sent:
+                        then:
+                          - lambda: |-
+                              ESP_LOGW("scanin", "I%d x9 : retiree de la file avant envoi", id(scanin_debut));
+                              id(scanin_echecs)++;
+                              id(scanin_attente) = false;
+                  - wait_until:
+                      condition:
+                        lambda: 'return !id(scanin_attente);'
+                      timeout: 15s
+                  - if:
+                      condition:
+                        lambda: 'return id(scanin_attente);'
+                      then:
+                        - lambda: |-
+                            ESP_LOGW("scanin", "I%d x9 : aucune issue en 15 s, balayage arrete", id(scanin_debut));
+                            id(scanin_arret) = true;
       - lambda: |-
-          auto *c = id(growatt);
-          static const uint16_t debuts[] = {90, 99, 108, 117, 126, 135, 144, 153, 162, 171, 180, 189, 198, 207, 216, 225, 234, 243, 252, 261};
-          for (uint16_t b : debuts) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[200];
-                  int n = 0;
-                  for (int i = 0; i < 9; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    uint16_t v = (data[p] << 8) | data[p + 1];
-                    if (v != 0 && n < 170)
-                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
-                  }
-                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
-                }));
-          }
-      - delay: 12s
-      - lambda: |-
-          auto *c = id(growatt);
-          static const uint16_t debuts[] = {270, 279, 288, 297, 306, 315, 324, 333, 342, 351, 360, 369, 378, 387, 396, 405, 414, 423, 432, 441};
-          for (uint16_t b : debuts) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[200];
-                  int n = 0;
-                  for (int i = 0; i < 9; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    uint16_t v = (data[p] << 8) | data[p + 1];
-                    if (v != 0 && n < 170)
-                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
-                  }
-                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
-                }));
-          }
-      - delay: 12s
-      - lambda: |-
-          auto *c = id(growatt);
-          static const uint16_t debuts[] = {450, 459, 468, 477, 486, 495, 504, 513, 522, 531, 540, 549, 558, 567, 576, 585, 594, 603, 612, 621};
-          for (uint16_t b : debuts) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[200];
-                  int n = 0;
-                  for (int i = 0; i < 9; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    uint16_t v = (data[p] << 8) | data[p + 1];
-                    if (v != 0 && n < 170)
-                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
-                  }
-                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
-                }));
-          }
-      - delay: 12s
-      - lambda: |-
-          auto *c = id(growatt);
-          static const uint16_t debuts[] = {630, 639, 648, 657, 666, 675, 684, 693, 702, 711, 720, 729, 738, 747, 756, 765, 774, 783, 792, 801};
-          for (uint16_t b : debuts) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[200];
-                  int n = 0;
-                  for (int i = 0; i < 9; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    uint16_t v = (data[p] << 8) | data[p + 1];
-                    if (v != 0 && n < 170)
-                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
-                  }
-                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
-                }));
-          }
-      - delay: 12s
-      - lambda: |-
-          auto *c = id(growatt);
-          static const uint16_t debuts[] = {810, 819, 828, 837, 846, 855, 864, 873, 882, 891, 900, 909, 918, 927, 936, 945, 954, 963, 972, 981};
-          for (uint16_t b : debuts) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[200];
-                  int n = 0;
-                  for (int i = 0; i < 9; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    uint16_t v = (data[p] << 8) | data[p + 1];
-                    if (v != 0 && n < 170)
-                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
-                  }
-                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
-                }));
-          }
-      - delay: 12s
-      - lambda: |-
-          auto *c = id(growatt);
-          static const uint16_t debuts[] = {990, 999, 3000, 3009, 3018, 3027, 3036, 3045, 3054, 3063, 3072, 3081, 3090, 3099, 3108, 3117, 3126, 3135, 3144, 3153};
-          for (uint16_t b : debuts) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[200];
-                  int n = 0;
-                  for (int i = 0; i < 9; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    uint16_t v = (data[p] << 8) | data[p + 1];
-                    if (v != 0 && n < 170)
-                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
-                  }
-                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
-                }));
-          }
-      - delay: 12s
-      - lambda: |-
-          auto *c = id(growatt);
-          static const uint16_t debuts[] = {3162, 3171, 3180, 3189, 3198, 3207, 3216, 3225, 3234, 3243, 3252, 3261, 3270, 3279, 3288, 3297};
-          for (uint16_t b : debuts) {
-            c->queue_command(
-              esphome::modbus_controller::ModbusCommandItem::create_read_command(
-                c, esphome::modbus::EntityType::INPUT_REGISTER, b, 9,
-                [](esphome::modbus::EntityType, uint16_t start,
-                   std::span<const uint8_t> data) {
-                  char buf[200];
-                  int n = 0;
-                  for (int i = 0; i < 9; i++) {
-                    size_t p = i * 2;
-                    if (p + 1 >= data.size()) break;
-                    uint16_t v = (data[p] << 8) | data[p + 1];
-                    if (v != 0 && n < 170)
-                      n += snprintf(buf + n, sizeof(buf) - n, " I%u=%u", start + i, v);
-                  }
-                  if (n > 0) ESP_LOGW("scanin", "%s", buf);
-                }));
-          }
-      - delay: 12s
-      - lambda: |-
-          ESP_LOGW("scanin", "Fin du balayage input Ond1");
+          ESP_LOGW("scanin", "Fin du balayage input Ond1 (%s, %d echec(s))",
+                   id(scanin_arret) ? "INTERROMPU" : "complet", id(scanin_echecs));
 
 button:
   - platform: template
