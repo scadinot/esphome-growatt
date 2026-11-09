@@ -89,10 +89,28 @@
 # PORTE SUR ESPHOME 2026.8.2 le 12/09/2026 : handler en std::span,
 #   enumeration modbus::EntityType. Reecrit le 13/09/2026 pour la lecture
 #   une par une - la structure a compteurs et entites est inchangee.
+#
+# PORTE SUR modbus_client.read_holding_registers (ModbusCommandItem et
+#   queue_command retires en 2027.3.0). Trois consequences :
+#   - le gestionnaire on_response ne recoit que `values` (mots deja dans
+#     l'ordre de l'hote), PAS l'adresse lue. Chaque lecture porte donc son
+#     adresse de debut EN DUR. Une globale "bloc en cours" serait fausse si
+#     une reponse arrivait apres le depart de la lecture suivante, la file
+#     du hub pouvant etre encombree par la scrutation des controleurs.
+#   - Ond2 est range dans scan_ond2 et compare A LA FIN, plus au vol.
+#   - une non-reponse ne touche plus l'etat du controleur : elle ne le met
+#     plus hors ligne et ne vide plus sa file (cause du zero du 28/08).
+#     L'inverse reste vrai : un controleur qui passe hors ligne vide la
+#     file de son adresse, la lecture en attente sort en on_not_sent.
+#   Chaque echec est journalise en WARN ; les compteurs restent la preuve.
 # =============================================================================
 
 globals:
   - id: scan_ond1
+    type: uint16_t[100]
+    restore_value: no
+
+  - id: scan_ond2
     type: uint16_t[100]
     restore_value: no
 
@@ -117,86 +135,172 @@ globals:
 
 script:
 
-  # Un bloc Ond1 : range ses mots dans scan_ond1 et compte.
-  - id: scan_bloc_ond1
-    mode: queued
-    parameters:
-      debut: int
-      nombre: int
-    then:
-      - lambda: |-
-          auto *c = id(growatt);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, debut, nombre,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                for (size_t i = 0; i * 2 + 1 < data.size(); i++) {
-                  int reg = start + i;
-                  if (reg >= 100) break;
-                  id(scan_ond1)[reg] = (data[i * 2] << 8) | data[i * 2 + 1];
-                  id(scan_n1)++;
-                }
-              }));
-
-  # Un bloc Ond2 : compare chaque mot a scan_ond1, compte et liste.
-  - id: scan_bloc_ond2
-    mode: queued
-    parameters:
-      debut: int
-      nombre: int
-    then:
-      - lambda: |-
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_read_command(
-              c, esphome::modbus::EntityType::HOLDING, debut, nombre,
-              [](esphome::modbus::EntityType, uint16_t start,
-                 std::span<const uint8_t> data) {
-                char buf[32];
-                for (size_t i = 0; i * 2 + 1 < data.size(); i++) {
-                  int reg = start + i;
-                  if (reg >= 100) break;
-                  id(scan_n2)++;
-                  if (reg >= 45 && reg <= 50) continue;
-                  uint16_t v1 = id(scan_ond1)[reg];
-                  if (v1 == 0xFFFF) continue;
-                  uint16_t v2 = (data[i * 2] << 8) | data[i * 2 + 1];
-                  if (v1 != v2) {
-                    id(scan_ndiff)++;
-                    ESP_LOGW("diff", "H%d : Ond1=%u  Ond2=%u", reg, v1, v2);
-                    snprintf(buf, sizeof(buf), "H%d:%u/%u ", reg, v1, v2);
-                    id(scan_txt) += buf;
-                  }
-                }
-              }));
-
   - id: scan_comparatif
     mode: single
     then:
       - lambda: |-
-          for (int i = 0; i < 100; i++) id(scan_ond1)[i] = 0xFFFF;
+          for (int i = 0; i < 100; i++) {
+            id(scan_ond1)[i] = 0xFFFF;
+            id(scan_ond2)[i] = 0xFFFF;
+          }
           id(scan_n1) = 0;
           id(scan_n2) = 0;
           id(scan_ndiff) = 0;
           id(scan_txt) = "";
           id(scan_detail).publish_state("Scan en cours...");
 
-      # Ond1, trois blocs alignes sur 45, un a la fois.
-      - script.execute: { id: scan_bloc_ond1, debut: 0,  nombre: 45 }
+      # Ond1, trois blocs alignes sur 45, un a la fois, adresse en dur.
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt)->device_address();'
+          start_address: 0
+          count: 45
+          on_response:
+            then:
+              - lambda: |-
+                  for (size_t i = 0; i < values.size() && 0 + i < 100; i++) {
+                    id(scan_ond1)[0 + i] = values[i];
+                    id(scan_n1)++;
+                  }
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond1 H0 x45 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("scan", "Ond1 H0 x45 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond1 H0 x45 : retiree de la file avant envoi");'
       - delay: 3s
-      - script.execute: { id: scan_bloc_ond1, debut: 45, nombre: 45 }
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt)->device_address();'
+          start_address: 45
+          count: 45
+          on_response:
+            then:
+              - lambda: |-
+                  for (size_t i = 0; i < values.size() && 45 + i < 100; i++) {
+                    id(scan_ond1)[45 + i] = values[i];
+                    id(scan_n1)++;
+                  }
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond1 H45 x45 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("scan", "Ond1 H45 x45 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond1 H45 x45 : retiree de la file avant envoi");'
       - delay: 3s
-      - script.execute: { id: scan_bloc_ond1, debut: 90, nombre: 9 }
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt)->device_address();'
+          start_address: 90
+          count: 9
+          on_response:
+            then:
+              - lambda: |-
+                  for (size_t i = 0; i < values.size() && 90 + i < 100; i++) {
+                    id(scan_ond1)[90 + i] = values[i];
+                    id(scan_n1)++;
+                  }
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond1 H90 x9 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("scan", "Ond1 H90 x9 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond1 H90 x9 : retiree de la file avant envoi");'
       - delay: 3s
 
-      # Ond2, memes blocs, compares au vol.
-      - script.execute: { id: scan_bloc_ond2, debut: 0,  nombre: 45 }
+      # Ond2, memes blocs.
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 0
+          count: 45
+          on_response:
+            then:
+              - lambda: |-
+                  for (size_t i = 0; i < values.size() && 0 + i < 100; i++) {
+                    id(scan_ond2)[0 + i] = values[i];
+                    id(scan_n2)++;
+                  }
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond2 H0 x45 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("scan", "Ond2 H0 x45 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond2 H0 x45 : retiree de la file avant envoi");'
       - delay: 3s
-      - script.execute: { id: scan_bloc_ond2, debut: 45, nombre: 45 }
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 45
+          count: 45
+          on_response:
+            then:
+              - lambda: |-
+                  for (size_t i = 0; i < values.size() && 45 + i < 100; i++) {
+                    id(scan_ond2)[45 + i] = values[i];
+                    id(scan_n2)++;
+                  }
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond2 H45 x45 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("scan", "Ond2 H45 x45 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond2 H45 x45 : retiree de la file avant envoi");'
       - delay: 3s
-      - script.execute: { id: scan_bloc_ond2, debut: 90, nombre: 9 }
+      - modbus_client.read_holding_registers:
+          modbus_id: modbus_growatt
+          address: !lambda 'return id(growatt2)->device_address();'
+          start_address: 90
+          count: 9
+          on_response:
+            then:
+              - lambda: |-
+                  for (size_t i = 0; i < values.size() && 90 + i < 100; i++) {
+                    id(scan_ond2)[90 + i] = values[i];
+                    id(scan_n2)++;
+                  }
+          on_error:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond2 H90 x9 : exception 0x%02X", (uint8_t) exception_code);'
+          on_no_response: !lambda |-
+            ESP_LOGW("scan", "Ond2 H90 x9 : pas de reponse");
+            return false;
+          on_not_sent:
+            then:
+              - lambda: 'ESP_LOGW("scan", "Ond2 H90 x9 : retiree de la file avant envoi");'
       - delay: 3s
+
+      # Comparaison, une fois les deux cotes lus. H45-H50 (horloges) exclus.
+      # 0xFFFF = mot non lu d'un cote ou de l'autre : pas compare.
+      - lambda: |-
+          char buf[32];
+          for (int reg = 0; reg < 99; reg++) {
+            if (reg >= 45 && reg <= 50) continue;
+            uint16_t v1 = id(scan_ond1)[reg];
+            uint16_t v2 = id(scan_ond2)[reg];
+            if (v1 == 0xFFFF || v2 == 0xFFFF) continue;
+            if (v1 != v2) {
+              id(scan_ndiff)++;
+              ESP_LOGW("diff", "H%d : Ond1=%u  Ond2=%u", reg, v1, v2);
+              snprintf(buf, sizeof(buf), "H%d:%u/%u ", reg, v1, v2);
+              id(scan_txt) += buf;
+            }
+          }
 
       - lambda: |-
           id(scan_r1).publish_state(id(scan_n1));

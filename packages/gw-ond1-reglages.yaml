@@ -17,7 +17,12 @@
 #   Les fenetres horaires H3-H6, le 16/09/2026 - Ond1 mis a 22-6 depuis HA,
 #     Ond2 reste a 0-23 pendant des heures.
 #   Les deux sont RECOPIEES ici meme, onduleur 1 maitre, par commande Modbus
-#   directe. La garde de chaque recopie s'appuie sur le capteur Ond2
+#   directe : action modbus_client.write_single_register vers l'adresse de
+#   growatt2 depuis la migration hors de ModbusCommandItem / queue_command
+#   (deprecies en 2026.9.0, retires en 2027.3.0). Aucune entite n'est posee
+#   sur ces registres cote Ond2 en dehors des capteurs de garde : pas de
+#   second lecteur, donc pas de piege n.2.
+#   La garde de chaque recopie s'appuie sur le capteur Ond2
 #   correspondant : ac1_reglage_ond2 (gw-ond2.yaml) et cmp2_h3 a cmp2_h6
 #   (gw-comparaison-b.yaml).
 #   GEN1 est dans gw-pv-off.yaml.
@@ -172,11 +177,21 @@ number:
                 format: "H3 sortie debut : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
                 args: ['x', 'id(cmp2_h3).state']
                 level: INFO
+            # Ecriture directe sur Ond2, sans entite sur le registre. Une
+            # non-reponse ne relance pas : si l'ecriture n'a pas pris, la
+            # relecture du capteur Ond2 rouvre la garde au cycle suivant.
+            - modbus_client.write_single_register:
+                modbus_id: modbus_growatt
+                address: !lambda 'return id(growatt2)->device_address();'
+                start_address: 3
+                value: !lambda 'return (uint16_t) roundf(x);'
+                on_error:
+                  then:
+                    - lambda: 'ESP_LOGW("recopie", "H3 : Ond2 refuse l ecriture, exception 0x%02X", (uint8_t) exception_code);'
+                on_no_response: !lambda |-
+                  ESP_LOGW("recopie", "H3 : Ond2 sans reponse a l ecriture");
+                  return false;
             - lambda: |-
-                auto *c = id(growatt2);
-                c->queue_command(
-                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
-                    c, 3, (uint16_t) roundf(x)));
                 // Cache mis a jour tout de suite, sinon la garde resterait
                 // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
                 // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
@@ -212,11 +227,21 @@ number:
                 format: "H4 sortie fin : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
                 args: ['x', 'id(cmp2_h4).state']
                 level: INFO
+            # Ecriture directe sur Ond2, sans entite sur le registre. Une
+            # non-reponse ne relance pas : si l'ecriture n'a pas pris, la
+            # relecture du capteur Ond2 rouvre la garde au cycle suivant.
+            - modbus_client.write_single_register:
+                modbus_id: modbus_growatt
+                address: !lambda 'return id(growatt2)->device_address();'
+                start_address: 4
+                value: !lambda 'return (uint16_t) roundf(x);'
+                on_error:
+                  then:
+                    - lambda: 'ESP_LOGW("recopie", "H4 : Ond2 refuse l ecriture, exception 0x%02X", (uint8_t) exception_code);'
+                on_no_response: !lambda |-
+                  ESP_LOGW("recopie", "H4 : Ond2 sans reponse a l ecriture");
+                  return false;
             - lambda: |-
-                auto *c = id(growatt2);
-                c->queue_command(
-                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
-                    c, 4, (uint16_t) roundf(x)));
                 // Cache mis a jour tout de suite, sinon la garde resterait
                 // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
                 // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
@@ -252,11 +277,21 @@ number:
                 format: "H5 charge debut : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
                 args: ['x', 'id(cmp2_h5).state']
                 level: INFO
+            # Ecriture directe sur Ond2, sans entite sur le registre. Une
+            # non-reponse ne relance pas : si l'ecriture n'a pas pris, la
+            # relecture du capteur Ond2 rouvre la garde au cycle suivant.
+            - modbus_client.write_single_register:
+                modbus_id: modbus_growatt
+                address: !lambda 'return id(growatt2)->device_address();'
+                start_address: 5
+                value: !lambda 'return (uint16_t) roundf(x);'
+                on_error:
+                  then:
+                    - lambda: 'ESP_LOGW("recopie", "H5 : Ond2 refuse l ecriture, exception 0x%02X", (uint8_t) exception_code);'
+                on_no_response: !lambda |-
+                  ESP_LOGW("recopie", "H5 : Ond2 sans reponse a l ecriture");
+                  return false;
             - lambda: |-
-                auto *c = id(growatt2);
-                c->queue_command(
-                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
-                    c, 5, (uint16_t) roundf(x)));
                 // Cache mis a jour tout de suite, sinon la garde resterait
                 // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
                 // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
@@ -292,11 +327,21 @@ number:
                 format: "H6 charge fin : recopie Ond1 -> Ond2, %.0f h (Ond2 etait a %.0f h)"
                 args: ['x', 'id(cmp2_h6).state']
                 level: INFO
+            # Ecriture directe sur Ond2, sans entite sur le registre. Une
+            # non-reponse ne relance pas : si l'ecriture n'a pas pris, la
+            # relecture du capteur Ond2 rouvre la garde au cycle suivant.
+            - modbus_client.write_single_register:
+                modbus_id: modbus_growatt
+                address: !lambda 'return id(growatt2)->device_address();'
+                start_address: 6
+                value: !lambda 'return (uint16_t) roundf(x);'
+                on_error:
+                  then:
+                    - lambda: 'ESP_LOGW("recopie", "H6 : Ond2 refuse l ecriture, exception 0x%02X", (uint8_t) exception_code);'
+                on_no_response: !lambda |-
+                  ESP_LOGW("recopie", "H6 : Ond2 sans reponse a l ecriture");
+                  return false;
             - lambda: |-
-                auto *c = id(growatt2);
-                c->queue_command(
-                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
-                    c, 6, (uint16_t) roundf(x)));
                 // Cache mis a jour tout de suite, sinon la garde resterait
                 // vraie jusqu'a la relecture du capteur Ond2 au cycle suivant
                 // (30 s depuis 2026.9.0 ; 10 min avant, par skip_updates) et
@@ -356,11 +401,20 @@ number:
                 format: "AC1 : recopie Ond1 -> Ond2, %.0f A (Ond2 etait a %.0f A)"
                 args: ['x', 'id(ac1_reglage_ond2).state']
                 level: INFO
-            - lambda: |-
-                auto *c = id(growatt2);
-                c->queue_command(
-                  esphome::modbus_controller::ModbusCommandItem::create_write_single_command(
-                    c, 38, (uint16_t) roundf(x)));
+            # Ecriture directe sur Ond2, sans entite sur le registre. Une
+            # non-reponse ne relance pas : si l'ecriture n'a pas pris, la
+            # relecture du capteur Ond2 rouvre la garde au cycle suivant.
+            - modbus_client.write_single_register:
+                modbus_id: modbus_growatt
+                address: !lambda 'return id(growatt2)->device_address();'
+                start_address: 38
+                value: !lambda 'return (uint16_t) roundf(x);'
+                on_error:
+                  then:
+                    - lambda: 'ESP_LOGW("recopie", "AC1 H38 : Ond2 refuse l ecriture, exception 0x%02X", (uint8_t) exception_code);'
+                on_no_response: !lambda |-
+                  ESP_LOGW("recopie", "AC1 H38 : Ond2 sans reponse a l ecriture");
+                  return false;
 
   # Tensions de charge. En mode LI le BMS impose vraisemblablement ces valeurs
   # par le CAN et ces reglages n'ont plus d'effet - non verifie. Les modifier

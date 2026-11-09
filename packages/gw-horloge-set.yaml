@@ -25,6 +25,12 @@
 #
 # USAGE COURANT : deux fois par an, aux changements d'heure. Ces SPF n'ont
 #   aucune gestion automatique de l'heure d'ete.
+#
+# ECRITURE PAR modbus_client.write_multiple_registers depuis la migration
+#   hors de ModbusCommandItem / queue_command (retires en 2027.3.0). Gain :
+#   l'acquittement de l'onduleur est journalise (on_response), le refus et
+#   la non-reponse aussi. Garde SNTP en condition, puisqu'une action ne
+#   peut pas "ne rien envoyer".
 # =============================================================================
 
 button:
@@ -34,49 +40,73 @@ button:
     icon: mdi:clock-edit-outline
     entity_category: config
     on_press:
-      - lambda: |-
-          auto t = id(heure_locale).now();
-          if (!t.is_valid()) {
-            ESP_LOGW("rtc", "Heure SNTP pas encore valide, ecriture annulee");
-            return;
-          }
-          int brut = (int) id(rtc_year).state;
-          uint16_t an = (brut > 0 && brut < 100) ? (uint16_t)(t.year % 100)
-                                                 : (uint16_t) t.year;
-          std::vector<uint16_t> v = { an,
-                                      (uint16_t) t.month,
-                                      (uint16_t) t.day_of_month,
-                                      (uint16_t) t.hour,
-                                      (uint16_t) t.minute,
-                                      (uint16_t) t.second };
-          auto *c = id(growatt);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_write_multiple_command(c, 45, 6, v));
-          ESP_LOGI("rtc", "Ond1 : ecriture %04d-%02d-%02d %02d:%02d:%02d (registre annee = %u)",
-                   t.year, t.month, t.day_of_month, t.hour, t.minute, t.second, an);
+      - if:
+          condition:
+            lambda: 'return id(heure_locale).now().is_valid();'
+          then:
+            - modbus_client.write_multiple_registers:
+                modbus_id: modbus_growatt
+                address: !lambda 'return id(growatt)->device_address();'
+                start_address: 45
+                values: !lambda |-
+                  auto t = id(heure_locale).now();
+                  int brut = (int) id(rtc_year).state;
+                  uint16_t an = (brut > 0 && brut < 100) ? (uint16_t)(t.year % 100)
+                                                         : (uint16_t) t.year;
+                  ESP_LOGI("rtc", "Ond1 : ecriture %04d-%02d-%02d %02d:%02d:%02d (registre annee = %u)",
+                           t.year, t.month, t.day_of_month, t.hour, t.minute, t.second, an);
+                  return std::vector<uint16_t>{ an,
+                                                (uint16_t) t.month,
+                                                (uint16_t) t.day_of_month,
+                                                (uint16_t) t.hour,
+                                                (uint16_t) t.minute,
+                                                (uint16_t) t.second };
+                on_response:
+                  then:
+                    - lambda: 'ESP_LOGW("rtc", "Ond1 : mise a l heure acquittee");'
+                on_error:
+                  then:
+                    - lambda: 'ESP_LOGW("rtc", "Ond1 : mise a l heure refusee, exception 0x%02X", (uint8_t) exception_code);'
+                on_no_response: !lambda |-
+                  ESP_LOGW("rtc", "Ond1 : mise a l heure sans reponse");
+                  return false;
+          else:
+            - lambda: 'ESP_LOGW("rtc", "Heure SNTP pas encore valide, ecriture annulee");'
 
   - platform: template
     name: "${upper_devicename} Mettre a l'heure Ond2"
     icon: mdi:clock-edit-outline
     entity_category: config
     on_press:
-      - lambda: |-
-          auto t = id(heure_locale).now();
-          if (!t.is_valid()) {
-            ESP_LOGW("rtc", "Heure SNTP pas encore valide, ecriture annulee");
-            return;
-          }
-          int brut = (int) id(rtc_year_2).state;
-          uint16_t an = (brut > 0 && brut < 100) ? (uint16_t)(t.year % 100)
-                                                 : (uint16_t) t.year;
-          std::vector<uint16_t> v = { an,
-                                      (uint16_t) t.month,
-                                      (uint16_t) t.day_of_month,
-                                      (uint16_t) t.hour,
-                                      (uint16_t) t.minute,
-                                      (uint16_t) t.second };
-          auto *c = id(growatt2);
-          c->queue_command(
-            esphome::modbus_controller::ModbusCommandItem::create_write_multiple_command(c, 45, 6, v));
-          ESP_LOGI("rtc", "Ond2 : ecriture %04d-%02d-%02d %02d:%02d:%02d (registre annee = %u)",
-                   t.year, t.month, t.day_of_month, t.hour, t.minute, t.second, an);
+      - if:
+          condition:
+            lambda: 'return id(heure_locale).now().is_valid();'
+          then:
+            - modbus_client.write_multiple_registers:
+                modbus_id: modbus_growatt
+                address: !lambda 'return id(growatt2)->device_address();'
+                start_address: 45
+                values: !lambda |-
+                  auto t = id(heure_locale).now();
+                  int brut = (int) id(rtc_year_2).state;
+                  uint16_t an = (brut > 0 && brut < 100) ? (uint16_t)(t.year % 100)
+                                                         : (uint16_t) t.year;
+                  ESP_LOGI("rtc", "Ond2 : ecriture %04d-%02d-%02d %02d:%02d:%02d (registre annee = %u)",
+                           t.year, t.month, t.day_of_month, t.hour, t.minute, t.second, an);
+                  return std::vector<uint16_t>{ an,
+                                                (uint16_t) t.month,
+                                                (uint16_t) t.day_of_month,
+                                                (uint16_t) t.hour,
+                                                (uint16_t) t.minute,
+                                                (uint16_t) t.second };
+                on_response:
+                  then:
+                    - lambda: 'ESP_LOGW("rtc", "Ond2 : mise a l heure acquittee");'
+                on_error:
+                  then:
+                    - lambda: 'ESP_LOGW("rtc", "Ond2 : mise a l heure refusee, exception 0x%02X", (uint8_t) exception_code);'
+                on_no_response: !lambda |-
+                  ESP_LOGW("rtc", "Ond2 : mise a l heure sans reponse");
+                  return false;
+          else:
+            - lambda: 'ESP_LOGW("rtc", "Heure SNTP pas encore valide, ecriture annulee");'

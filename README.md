@@ -17,7 +17,7 @@ Ce dépôt est une copie versionnée. Les modifications partent du serveur.
 | Onduleur 1 | adresse Modbus 1, série `KHM8F3X0XD`, firmware 100.08 / DSP 101.07 depuis le 29/09/2026 (100.06 / 101.05 avant) |
 | Onduleur 2 | adresse Modbus 2, série `UYN8G3V04A`, firmware 100.08 / DSP 101.07 |
 | Liaison | RS485 9600 8N1, TX GPIO17 / RX GPIO16 |
-| Firmware ESP | ESPHome **2026.10.1**, depuis le 28/10/2026 |
+| Firmware ESP | ESPHome **2026.10.2** (build du 05/11/2026), migration `modbus_client` flashée le 09/11/2026 |
 
 Jusqu'au 29/09/2026, les deux firmwares **différaient** — deux unités achetées
 ensemble, fabriquées à des dates différentes. Ils sont alignés depuis, sans
@@ -360,7 +360,66 @@ identiques :
 
 Lambdas concernées : la recopie des fenêtres H3-H6 et d'AC1 vers Ond2
 (`gw-ond1-reglages`), la mise à l'heure (`gw-horloge-set`) et le scan
-comparatif (`gw-scan-diff`), plus les deux outils non inclus. **À migrer avant
-2027.3.0.** Le piège à éviter : côté Ond2, H3-H6 et H38 sont déjà lus par des
+comparatif (`gw-scan-diff`), plus les deux outils non inclus. Migrées le
+09/11/2026, voir la section suivante. Le piège à éviter : côté Ond2, H3-H6 et
+H38 sont déjà lus par des
 capteurs (`cmp2_h3` à `cmp2_h6`, `ac1_reglage_ond2`) ; y poser un `number`
 pour écrire ferait lire deux fois le même registre — le piège n° 2.
+
+## 09/11/2026 — sortie de `ModbusCommandItem` : actions `modbus_client`
+
+Les neuf appels dépréciés des trois paquets inclus passent désormais par les
+actions `modbus_client.*` du hub `modbus`. Elles lisent ou écrivent à l'adresse
+d'un esclave **sans aucune entité** sur le registre.
+
+Les « helpers d'écriture d'entité » proposés par les notes de version 2026.9.0
+n'existent que dans le `write_lambda` d'une entité. Côté Ond2, les utiliser
+reviendrait à poser une entité sur H3-H6 ou H38, donc à rejouer le piège n° 2.
+
+Dates : ces appels sont dépréciés depuis **2026.9.0**, et non 2026.10.0 ; c'est
+la compilation du 23/10 qui l'a fait remarquer. Ils sont retirés en 2027.3.0.
+
+Ce qui change, par fichier :
+
+- **`gw-ond1-reglages`** : `write_single_register` vers `growatt2` pour H3-H6
+  et H38. La garde, la mise à jour du cache et le log INFO ne changent pas.
+  Nouveau : un WARN `recopie` sur refus ou non-réponse, sans relance.
+- **`gw-horloge-set`** : `write_multiple_registers` sur H45-H50, avec la garde
+  SNTP passée en condition. Nouveau : un WARN `rtc` sur acquittement, refus ou
+  non-réponse.
+- **`gw-scan-diff`** : six `read_holding_registers` explicites. L'adresse de
+  début est écrite en dur dans chaque `on_response`, qui ne reçoit que
+  `values`. Ond2 est rangé dans `scan_ond2` et comparé à la fin. Une
+  non-réponse ne met plus le contrôleur hors ligne et ne vide plus sa file,
+  comme le 28/08.
+- **Partout** : l'adresse de l'esclave vient de `id(growattX)->device_address()`.
+  Chaque action déclare un `on_no_response` qui rend `false`, car le
+  comportement par défaut n'est pas documenté.
+- **Non migrés** : `gw-scan-ond2` et `gw-scan-input`, qui ne sont pas inclus.
+  Ils sont à porter avant de les réinclure.
+
+Vérifications :
+
+- **Entités** : `esphome config` lancé en local sur la copie d'origine et sur la
+  copie patchée, avec des secrets factices. Les deux listes ont 161 entités, de
+  mêmes noms et mêmes domaines, donc aucun entity_id ne change. Côté Ond2, une
+  seule entité par registre sur H3-H6 et H38.
+- **Flash** : compilé sur le serveur en 2026.10.2, OTA en 6,5 s. Le premier
+  `esphome_install`, donné comme « expiré », avait quand même flashé : deux
+  coupures de 6 s, à 09:42 et à 09:43.
+- **Scan comparatif** : avant le flash (09:37) et après (09:44), 99 / 99 et
+  les mêmes 7 écarts. Ce sont H23-H27 (numéros de série), H34 (valeur
+  dynamique) et H80 (code usine). H9-H14 ne sortent plus depuis l'alignement
+  des firmwares du 29/09. L'en-tête de `gw-scan-diff`, qui en fait des témoins
+  de bon fonctionnement, est périmé sur ce point.
+- **Mise à l'heure** :
+
+  | | Dérive avant | Dérive après |
+  |---|---|---|
+  | Ond2 | 39 s | −5 s |
+  | Ond1 | 34 s | −2 s |
+
+  L'écart entre les deux horloges passe de 36 s à 0 s.
+- **AC1** : Ond1 passé de 15 à 16 A puis remis à 15 A. Ond2 suit en 5 s à
+  l'aller et en 19 s au retour. Ond1 a relu une fois l'ancienne valeur, 2 s
+  après l'écriture (lecture déjà en file), sans écriture parasite vers Ond2.
