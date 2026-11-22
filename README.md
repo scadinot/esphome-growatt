@@ -440,3 +440,42 @@ Vérification : `esphome config` passe avec les deux outils inclus dans une
 copie locale. La configuration entière, avec ces deux outils, compile aussi
 en local (ESP-IDF 5.5.6), sans aucun avertissement de dépréciation. Ils
 restent hors de `growatt.yaml` et n'ont pas été exécutés.
+
+## 21/11/2026 — neutre coupé en marche sur batterie
+
+Essai fait au bornier d'Ond1, branchement provisoire, **sans liaison N-PE en
+aval**, réseau présent, SOC 96 %. Multimètre FNIRSI 2C53T, entre N entrée et
+N sortie :
+
+| Priorité | État des deux onduleurs | Relevé |
+|---|---|---|
+| UTI | AC Charge & Bypass | 0 Ω (l'appareil, en automatique, est passé seul en ohms) |
+| SBU | Discharge, 0 W en entrée AC | **110 V AC** |
+
+**L'onduleur sépare donc le neutre de sortie de celui du réseau quand il est
+sur batterie.** Sans liaison N-PE, la sortie est alors en neutre flottant et
+un différentiel 30 mA ne déclenche pas au premier défaut. Cela vaut pour une
+coupure EDF comme pour un passage en SBU, manuel ou piloté.
+
+Ce qui n'a pas été mesuré : L-PE et N-PE, donc le potentiel de la sortie par
+rapport à la terre, et le bornier d'Ond2.
+
+À retenir :
+
+- **Une liaison N-PE commandée par la présence du réseau ne convient pas** :
+  elle reste ouverte en SBU réseau présent.
+- **Elle ne doit pas non plus être fermée tant qu'un des deux onduleurs est en
+  bypass** : elle relierait le neutre du réseau à la terre.
+- **Ne pas la commander par cet ESP** : chaque onduleur n'est lu que toutes
+  les 30 s et la liaison API tombe parfois.
+- Le contact sec du Growatt est décrit par la notice (v1.0, p. 13) comme un
+  signal de seuil batterie, pas de marche sur batterie.
+- Pour contrôler un neutre flottant, mesurer en V alternatif haute impédance :
+  le LoZ peut le ramener près de 0 V. Pas de mesure en ohms sous tension.
+
+Chronologie dans l'historique HA : SBU écrit à 18:02:29, *Discharge* lu à
+18:03:05 (Ond1) et 18:03:32 (Ond2) ; UTI écrit à 18:06:59, bypass lu à
+18:07:05 et 18:07:32. Ond2 étant lu environ 3 s avant Ond1 sur un cycle de
+30 s, **ces écarts ne mesurent pas un retard entre les deux onduleurs**.
+
+Aucun changement de configuration ESP.
